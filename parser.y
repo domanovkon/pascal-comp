@@ -1,9 +1,9 @@
 %{
+    #include "node.h"
     #include <string>
-    #include <node.h>
     
-    #define YYDEBUG 1
-    NBlock *programBlock; /* корень Дерева */
+    #include <iostream>
+    NBlock *programBlock; /* корень */
 
     extern int yylex();
     extern "C" FILE *yyin;
@@ -16,181 +16,101 @@
         NStatement *stmt;
         std::string *string;
         NIdentifier *ident;
-        NVariableDeclaration *var_decl;
-        std::vector<NVariableDeclaration*> *varvec;
+        // NVariableDeclaration *var_decl;
+        std::vector<NIdentifier*> *identList;
+        std::vector<NDeclarations*> * declVarLists;
         int number;
         int token;
-        NInteger *integ;
+        // NInteger *integ;
+        NDeclarations *decl;
 
 
 
         NFunctionHeaderDeclaration *funchead;
         NExpression *expr;
         ExpressionList *expr_list;
+        IdentifierList *ident_list;
 }
 
 /* Терминалы */
 %token <string> T_IDENTIFIER
-%token <number> T_DIGIT
-%token <token> T_ASSIGNMENT;
-%token <token> T_CEQ T_CNE T_CLT T_CLE T_CGT T_CGE
-%token <token> T_PLUS T_MINUS T_MUL T_DIV
-%token <token> T_AND T_OR T_NOT
-%token <token> T_OPAREN T_CPAREN T_DOT T_COMMA T_SEMICOLON
-%token <token> T_IF T_THEN T_ELSE
-%token <token> T_FOR T_WHILE T_TO T_DO
+%token <token> T_OPAREN T_CPAREN T_COMMA T_SEMICOLON T_COLON
 %token <token> T_BEGIN T_END
+%token <token>  T_VAR
+%token <token> T_INTEGER T_REAL
+%token <token> T_FUNCTION  T_PROGRAM
 
 
 /* Нетерминалы */
-%type <ident> identifier var-identifier type-identifier procedure-identifier function-identifier
-%type <token> relational-operator addition-operator multiplication-operator sign
-%type <expr> expression simple-expression factor term number
-%type <number> unsigned-digit-sequence digit-sequence integer-number real-number
-%type <stmt> compound_statement loop-statement statement optional_statements simple-statement assignment-statement define-var-list-statement procedure-statement while_stmt for_stmt if_stmt statement_list
+%type <block> program function statement-sequence procedure-body compound-statement
+%type <ident> identifier type-identifier 
+%type <stmt> statement procedure-declaration  
+%type <funchead> procedure-heading
+%type <declVarLists> declarations-list
+%type <decl> declarations
+%type <identList> identifier-list
+
+%start program
+
 
 %%
 
-//program :  { std::cout << "program\n "; }
-//                ;
                 
-//block : declaration-part { $$ = $1; std::cout << "block\n "; }
-//                ;
+program : T_PROGRAM identifier T_SEMICOLON function  { programBlock = $4; std::cout << "program\n "; }
+                | T_PROGRAM identifier T_SEMICOLON T_VAR declarations function  { programBlock = $6; programBlock ->statements.push_back($5); std::cout << "program\n "; }
+                | function { programBlock = $1; std::cout << "program\n "; }
+                ;             
 
-relational-operator : T_CEQ | T_CNE | T_CLT | T_CLE | T_CGT | T_CGE
                 ;
-                
-addition-operator : T_PLUS | T_MINUS | T_OR 
+function : procedure-declaration { $$ = new NBlock(); typeid($1).name(); $$->statements.push_back($1); std::cout << "function\n "; }
+                |       function procedure-declaration { $1->statements.push_back($2); std::cout << "function\n ";}
                 ;
-                
-multiplication-operator : T_MUL
-    		| T_DIV
-    		| T_AND
-    		;
 
-sign : T_PLUS 
-                | T_MINUS 
-                ;
+procedure-declaration : procedure-heading procedure-body { $$ = new NFunctionDeclaration(*$1, *$2); std::cout << "procedure-declaration\n "; }           
                 
-    
-identifier : T_IDENTIFIER { $$ = new NIdentifier(*$1); std::cout << "identifier1 "<< $$->name <<"\n "; }
-		;
 
+procedure-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "procedure-heading\n "; }
+                /* |   TALG identifier { $$ = new NFunctionHeaderDeclaration(*$2); std::cout << "procedure-heading+identifier "<< $2->name << "\n "; } */
+                /* |   TALG identifier TLPAREN formal-parameter-list TRPAREN  { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; } */
+                /* |   TALG type-identifier identifier { $$ = new NFunctionHeaderDeclaration(*$3, *$2); std::cout << "procedure-heading+identifier \n "; } */
+                |   T_FUNCTION identifier T_OPAREN  T_CPAREN type-identifier  { $$ = new NFunctionHeaderDeclaration(*$2, *$5); std::cout << "procedure-heading+identifier+params\n "; }
+                ;
 
-//identifier-list : T_IDENTIFIER { $$ = $1} ; std::cout << "identifier1 "<< $$->name <<"\n "; }
-//		;
-
-
-//expression : simple-expression { $$ = $1; }
-//                | simple-expression relational-operator simple-expression { $$ = new NBinaryOperator(*$1, $2, *$3); std::cout << "expression with relational operator \n";}
-  //              ;    
-  
-  
-expression : simple-expression { $$ = $1; }
-                | simple-expression relational-operator simple-expression { $$ = new NBinaryOperator(*$1, $2, *$3); std::cout << "expression with relational operator \n";}
-                ;
-                
-simple-expression : term { $$ = $1; }
-                | simple-expression addition-operator term { $$ = new NBinaryOperator(*$1, $2, *$3); std::cout << "expression with addition operator \n";}
-                ;
-         
-term : factor {$$ = $1; std::cout << "term \n";}
-                | term multiplication-operator factor {$$ = new NBinaryOperator(*$1, $2, *$3); std::cout << "term with mul operator\n";}
-                ;
-                
-                
-                
-factor : number { $$ = $1; std::cout << "numfactor \n";}
-                | var-identifier { $$ = $1; std::cout << "varFactorIdentifer \n";}
-                | T_OPAREN expression T_CPAREN { $$ = $2; std::cout << "exp factor \n";}
-                | T_NOT factor { $$ = $1; std::cout << "not factor \n";}
-                //| TSTRING { $$ = new NConstantString(*$1); std::cout << "strfactor \n";}
-                ;
-                
-                
-var-identifier : identifier {$$ =$1; std::cout << "var-identifier \n";}
-                ;
-                
-number : integer-number { $$ = new NInteger($1);}
-                //| real-number { $$ = new NReal($1);}
+type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-identifier\n ";}
+                | T_REAL {$$ = new NIdentifier("real"); std::cout << "type-identifier\n ";}
                 ;
 
 
-integer-number : digit-sequence {$$ = $1;}
-                ;
-                
-digit-sequence : unsigned-digit-sequence {$$ = $1;}
-                | sign unsigned-digit-sequence %prec UMINUS { if($1 == TMINUS) {$$=-1*$2; std::cout << "set Sign "<<$$<<"\n";} else { $$ = $2; } }
-                ;
-                
-unsigned-digit-sequence : unsigned-digit-sequence T_DIGIT { $$ = $1 * 10 + $2; std::cout << "Current T_DIGIT "<<$2<<", all number "<<$$<<"\n";}
-                | T_DIGIT { $$ = $1; std::cout << "Current TDIGIT "<<$1<<", all number "<<$$<<"\n";}
-                ;
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-compound_statement: T_BEGIN optional_statements T_END T_DOT { $$ = $2; }
-    		| /* E */ { $$ = NULL; }
-    		;
-    	
-optional_statements: statement_list { $$ = $1; }
-    		| /* E */ { $$ = NULL; }
-    		;
-    		
-
-statement_list: statement { $$ = $1; }
-    		| statement_list { $$ = $1; }
-    		;
-    		
-
-statement : assignment-statement { $$ = $1; std::cout << "assignment-statement\n ";}
-            	| loop-statement {$$ = $1; std::cout << "loop-statement\n ";}
-            	| if_stmt {$$=$1; std::cout << "if_stmt\n ";}
-                ;
-                
-                
-assignment-statement : var-identifier T_ASSIGNMENT expression { $$ = new NAssignment(*$1, *$3); std::cout << "assignment-statement (, with ...)\n ";}
-		;
 		
-	
-if_stmt : T_IF expression T_THEN statement { $$ = new NIfStatement(*$2, *$4); }
-		| T_IF expression T_THEN statement T_ELSE statement { $$ = new NIfStatement(*$2, *$4, $6); }
-        ;
-        
-        
-loop-statement : while_stmt {$$ = $1;}
-                | for_stmt {$$ = $1;}
+declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->push_back($1); }
+                | declarations-list declarations T_SEMICOLON { $$->push_back($2); }
+		;
+
+declarations : identifier-list T_COLON type-identifier {$$ = new NDeclarations($1, $3);}
+		;
+
+identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); }
+		| identifier-list T_COMMA identifier { $$->push_back($3); } 
+		;
+
+procedure-body : compound-statement { $$ = $1; std::cout << "procedure-body\n "; }
                 ;
-
-while_stmt : T_WHILE expression T_DO statement { $$ = new NForStatement($4, nullptr, $2); }
+                
+compound-statement : T_BEGIN T_END {$$ = new NBlock(); std::cout << "compound-statement\n "; }
+                | T_BEGIN statement-sequence T_END {$$ = $2; std::cout << "compound-statement\n "; }
                 ;
-
-for_stmt : T_FOR var-identifier T_ASSIGNMENT number T_TO number T_DO statement { $$ = new NForStatement($8, $3, nullptr, $<integ>4, $<integ>6); }
-    		
-
                 
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+identifier : T_IDENTIFIER { $$ = new NIdentifier(*$1); std::cout << "identifier1 "<< $$->name <<"\n "; }
+                ;
 
+statement-sequence : statement {$$ = new NBlock(); $$->statements.push_back($1);}
+                |    statement-sequence statement { $1->statements.push_back($2); }
+                |    statement-sequence T_SEMICOLON { $$ = $1; }
+                ;
+
+
+statement : identifier {$$ = nullptr;}
+                ;
+    		
 %%
