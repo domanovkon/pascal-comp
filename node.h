@@ -12,6 +12,7 @@ class NIdentifier;
 class NVariableDeclaration;
 class NVariableDefinition;
 class NFunctionDeclaration;
+class NDeclarations;
 
 typedef int Number;
 typedef std::vector<NStatement *> StatementList;
@@ -19,6 +20,7 @@ typedef std::vector<NExpression *> ExpressionList;
 typedef std::vector<NIdentifier *> IdentifierList;
 typedef std::vector<NVariableDeclaration *> VariableList;
 typedef std::vector<std::vector<NVariableDeclaration *> *> LocalVariableList;
+typedef std::vector<NDeclarations *> DeclarationsList;
 
 
 class Node
@@ -107,6 +109,7 @@ class NBlock : public NStatement
 public:
     StatementList statements;
     LocalVariableList localVars;
+    std::vector<NDeclarations*> declVarLists;
     // NDeclarations localVars;
     NBlock() {}
     // virtual llvm::Value *codeGen(CodeGenContext &context);

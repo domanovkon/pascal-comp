@@ -18,7 +18,7 @@
         NIdentifier *ident;
         // NVariableDeclaration *var_decl;
         std::vector<NIdentifier*> *identList;
-        std::vector<NDeclarations*> * declVarLists;
+        std::vector<NDeclarations*> *declVarLists;
         int number;
         int token;
         // NInteger *integ;
@@ -49,11 +49,12 @@
 /* Нетерминалы */
 %type <block> program function statement-sequence procedure-body compound-statement
 %type <ident> identifier type-identifier 
-%type <stmt> statement procedure-declaration  
+%type <stmt> statement procedure-declaration loop-statement while_stmt
 %type <funchead> procedure-heading
 %type <declVarLists> declarations-list
 %type <decl> declarations
 %type <identList> identifier-list
+%type <expr> expression
 
 %start program
 
@@ -62,7 +63,7 @@
 
                 
 program : T_PROGRAM identifier T_SEMICOLON function  { programBlock = $4; std::cout << "program\n "; }
-                | T_PROGRAM identifier T_SEMICOLON T_VAR declarations function  { programBlock = $6; programBlock ->statements.push_back($5); std::cout << "program\n "; }
+                | T_PROGRAM identifier T_SEMICOLON T_VAR declarations-list function  { programBlock = $6; programBlock -> declVarLists = *$5 ; std::cout << "program\n "; }
                 | function { programBlock = $1; std::cout << "program\n "; }
                 ;             
 
@@ -78,7 +79,7 @@ procedure-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "proce
                 /* |   TALG identifier { $$ = new NFunctionHeaderDeclaration(*$2); std::cout << "procedure-heading+identifier "<< $2->name << "\n "; } */
                 /* |   TALG identifier TLPAREN formal-parameter-list TRPAREN  { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; } */
                 /* |   TALG type-identifier identifier { $$ = new NFunctionHeaderDeclaration(*$3, *$2); std::cout << "procedure-heading+identifier \n "; } */
-                |   T_FUNCTION identifier T_OPAREN  type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; }
+                |   T_FUNCTION identifier T_OPAREN T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$6); std::cout << "procedure-heading+identifier+params\n "; }
                 ;
 
 type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-identifier\n ";}
@@ -114,8 +115,27 @@ statement-sequence : statement {$$ = new NBlock(); $$->statements.push_back($1);
                 |    statement-sequence T_SEMICOLON { $$ = $1; }
                 ;
 
-
-statement : identifier {$$ = nullptr;}
+statement : 
+                /* assignment-statement { $$ = $1; std::cout << "assignment-statement\n ";} */
+                loop-statement {$$ = $1; std::cout << "loop-statement\n ";}
+                /* | if_stmt {$$=$1; std::cout << "if_stmt\n ";} */
                 ;
-    		
+
+loop-statement : while_stmt {$$ = $1;}
+                /* | for_stmt {$$ = $1;} */
+                ;
+
+while_stmt : T_WHILE expression T_DO T_BEGIN statement-sequence T_END { $$ = new NForStatement($6, nullptr, $4); }
+                ;
+
+expression : identifier { $$ = nullptr; }
+
+/* for_stmt : T_BEGIN T_FOR identifier T_TO number statement-sequence T_END { $$ = new NForStatement($8, $3, nullptr, $<integ>5, $<integ>7); }
+                ;
+
+if_stmt : T_IF T_OPAREN expression T_CPAREN T_THEN statement-sequence T_END { $$ = new NIfStatement(*$3, *$6); }
+		| T_IF T_OPAREN expression T_CPAREN T_THEN statement-sequence T_ELSE statement-sequence T_END { $$ = new NIfStatement(*$3, *$6, $8); }
+        ; */
+
+
 %%
