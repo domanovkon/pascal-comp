@@ -34,11 +34,16 @@
 
 /* Терминалы */
 %token <string> T_IDENTIFIER
-%token <token> T_OPAREN T_CPAREN T_COMMA T_SEMICOLON T_COLON
+%token <token> T_OPAREN T_CPAREN T_COMMA T_SEMICOLON T_COLON T_DOT
 %token <token> T_BEGIN T_END
 %token <token>  T_VAR
 %token <token> T_INTEGER T_REAL
-%token <token> T_FUNCTION  T_PROGRAM
+%token <token> T_FUNCTION  T_PROGRAM T_PROCEDURE
+%token <token> T_ASSIGNMENT T_CEQ T_CNE T_CLT T_CLE T_CGT T_CGE
+%token <token> T_PLUS T_MINUS T_MUL T_DIV
+%token <token> T_AND T_OR T_NOT
+%token <token> T_IF T_THEN T_ELSE T_WHILE T_DO T_FOR T_TO
+%token <number> T_DIGIT
 
 
 /* Нетерминалы */
@@ -73,7 +78,7 @@ procedure-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "proce
                 /* |   TALG identifier { $$ = new NFunctionHeaderDeclaration(*$2); std::cout << "procedure-heading+identifier "<< $2->name << "\n "; } */
                 /* |   TALG identifier TLPAREN formal-parameter-list TRPAREN  { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; } */
                 /* |   TALG type-identifier identifier { $$ = new NFunctionHeaderDeclaration(*$3, *$2); std::cout << "procedure-heading+identifier \n "; } */
-                |   T_FUNCTION identifier T_OPAREN  T_CPAREN type-identifier  { $$ = new NFunctionHeaderDeclaration(*$2, *$5); std::cout << "procedure-heading+identifier+params\n "; }
+                |   T_FUNCTION identifier T_OPAREN  type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; }
                 ;
 
 type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-identifier\n ";}
@@ -82,15 +87,15 @@ type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-ide
 
 
 		
-declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->push_back($1); }
-                | declarations-list declarations T_SEMICOLON { $$->push_back($2); }
+declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->push_back($1); std::cout << "decl-list\n "; }
+                | declarations-list declarations T_SEMICOLON { $$->push_back($2); std::cout << "decl-list\n ";}
 		;
 
-declarations : identifier-list T_COLON type-identifier {$$ = new NDeclarations($1, $3);}
+declarations : identifier-list T_COLON type-identifier {$$ = new NDeclarations(*$1, *$3); std::cout << "decl\n ";}
 		;
 
-identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); }
-		| identifier-list T_COMMA identifier { $$->push_back($3); } 
+identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); std::cout << "ident-list\n ";}
+		| identifier-list T_COMMA identifier { $$->push_back($3); std::cout << "ident-list\n ";} 
 		;
 
 procedure-body : compound-statement { $$ = $1; std::cout << "procedure-body\n "; }

@@ -2,7 +2,6 @@
 #include <string>
 #include "node.h"
 #include "parser.hpp"
-
 #define SAVE_TOKEN yylval.string = new std::string(yytext, yyleng)
 #define TOKEN(t) (yylval.token = t)
 extern "C" int yywrap() { return 1; }
@@ -15,7 +14,7 @@ extern "C" int yywrap() { return 1; }
 
 
 ":="                    return TOKEN(T_ASSIGNMENT);
-"="			 return TOKEN(T_CEQ);
+"="			            return TOKEN(T_CEQ);
 "<>"                    return TOKEN(T_CNE);
 "<"                     return TOKEN(T_CLT);
 "<="                    return TOKEN(T_CLE);
@@ -43,15 +42,15 @@ extern "C" int yywrap() { return 1; }
 
 
 "program"               return TOKEN(T_PROGRAM);
-"begin"		 return TOKEN(T_BEGIN);
-"end"			 return TOKEN(T_END);
-"var"			 return TOKEN(T_VAR);
-"function"		 return TOKEN(T_FUNCTION);
-"procedure"		 return TOKEN(T_PROCEDURE);
+"begin"		            return TOKEN(T_BEGIN);
+"end"			        return TOKEN(T_END);
+"var"			        return TOKEN(T_VAR);
+"function"		        return TOKEN(T_FUNCTION);
+"procedure"		        return TOKEN(T_PROCEDURE);
 
 
-"integer"		 return TOKEN(T_INTEGER);
-"real"			 return TOKEN(T_REAL);
+"integer"		        return TOKEN(T_INTEGER);
+"real"			        return TOKEN(T_REAL);
 
 
 "write"                 {yylval.string=new std::string("write"); return T_IDENTIFIER;}
