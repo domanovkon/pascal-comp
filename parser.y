@@ -16,9 +16,10 @@
         NStatement *stmt;
         std::string *string;
         NIdentifier *ident;
-        // NVariableDeclaration *var_decl;
+        NVariableDeclaration *var_decl;
         std::vector<NIdentifier*> *identList;
         std::vector<NDeclarations*> *declVarLists;
+        std::vector<NVariableDeclaration*> *varvec;
         int number;
         int token;
         // NInteger *integ;
@@ -58,6 +59,8 @@
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
 %type <number> integer-number digit-sequence  unsigned-digit-sequence
+%type <var_decl> formal-parameter-section
+%type <varvec> formal-parameter-list
 
 %start program
 %left T_CLT T_CGT T_CNE T_CLE T_CGE
@@ -82,10 +85,15 @@ procedure-declaration : procedure-heading procedure-body { $$ = new NFunctionDec
                 
 
 procedure-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "procedure-heading\n "; }
-                /* |   TALG identifier { $$ = new NFunctionHeaderDeclaration(*$2); std::cout << "procedure-heading+identifier "<< $2->name << "\n "; } */
-                /* |   TALG identifier TLPAREN formal-parameter-list TRPAREN  { $$ = new NFunctionHeaderDeclaration(*$2, *$4); std::cout << "procedure-heading+identifier+params\n "; } */
-                /* |   TALG type-identifier identifier { $$ = new NFunctionHeaderDeclaration(*$3, *$2); std::cout << "procedure-heading+identifier \n "; } */
+                |   T_FUNCTION identifier T_OPAREN formal-parameter-list T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$7, *$4); std::cout << "procedure-heading+identifier+params\n "; }
                 |   T_FUNCTION identifier T_OPAREN T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$6); std::cout << "procedure-heading+identifier+params\n "; }
+                ;
+
+formal-parameter-list : formal-parameter-list T_COMMA formal-parameter-section { $1->push_back($<var_decl>3); std::cout << "formal-parameter-list\n ";}
+                | formal-parameter-section { $$ = new VariableList(); $$->push_back($<var_decl>1); std::cout << "formal-parameter-list\n ";}
+                ;
+  
+formal-parameter-section : identifier T_COLON type-identifier  { $$ = new NVariableDeclaration(*$3, *$1);}
                 ;
 
 type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-identifier\n ";}
@@ -121,8 +129,8 @@ compound-statement : T_BEGIN T_END {$$ = new NBlock(); std::cout << "compound-st
 identifier : T_IDENTIFIER { $$ = new NIdentifier(*$1); std::cout << "identifier1 "<< $$->name <<"\n "; }
                 ;
 
-statement-sequence : statement {$$ = new NBlock(); $$->statements.push_back($1);}
-                | statement-sequence statement { $1->statements.push_back($2); }
+statement-sequence : statement T_SEMICOLON {$$ = new NBlock(); $$->statements.push_back($1);}
+                | statement-sequence statement T_SEMICOLON { $1->statements.push_back($2); }
                 | statement-sequence T_SEMICOLON { $$ = $1; }
                 ;
 
