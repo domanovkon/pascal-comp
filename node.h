@@ -274,4 +274,36 @@ public:
         return "NIfStatement";
     }
 };
+
+class NAssignment : public NStatement
+{
+public:
+    NIdentifier &lhs;
+    NExpression &rhs;
+    NAssignment(NIdentifier &lhs, NExpression &rhs) : lhs(lhs), rhs(rhs)
+    {
+        std::cout << ":)";
+    }
+    // virtual llvm::Value *codeGen(CodeGenContext &context);
+
+    std::string getTypeName() const override
+    {
+        return "NAssignment";
+    }
+};
+
+class NMethodCall : public NStatement, public NExpression
+{
+public:
+    const NIdentifier &id;
+    ExpressionList arguments;
+    NMethodCall(const NIdentifier &id, ExpressionList &arguments) : id(id), arguments(arguments) {}
+    NMethodCall(const NIdentifier &id) : id(id) {}
+    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    std::string getTypeName() const override
+    {
+        return "NMethodCall";
+    }
+};
+
 #endif

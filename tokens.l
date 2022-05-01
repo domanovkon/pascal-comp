@@ -46,7 +46,6 @@ extern "C" int yywrap() { return 1; }
 "end"			        return TOKEN(T_END);
 "var"			        return TOKEN(T_VAR);
 "function"		        return TOKEN(T_FUNCTION);
-"procedure"		        return TOKEN(T_PROCEDURE);
 
 
 "integer"		        return TOKEN(T_INTEGER);
