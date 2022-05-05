@@ -22,7 +22,7 @@
         std::vector<NVariableDeclaration*> *varvec;
         int number;
         int token;
-        // NInteger *integ;
+        NInteger *integ;
         NDeclarations *decl;
 
 
@@ -44,13 +44,13 @@
 %token <token> T_PLUS T_MINUS T_MUL T_DIV
 %token <token> T_AND T_OR T_NOT
 %token <token> T_IF T_THEN T_ELSE T_WHILE T_DO T_FOR T_TO
-%token <number> T_DIGIT
+%token <number> T_DIGIT;
 
 
 /* Нетерминалы */
 %type <block> program function statement-sequence procedure-body compound-statement
-%type <ident> identifier type-identifier var-identifier function-identifier
-%type <stmt> statement procedure-declaration assignment-statement loop-statement while_stmt
+%type <ident> identifier type-identifier var-identifier function-identifier procedure-identifier
+%type <stmt> statement procedure-declaration assignment-statement loop-statement while_stmt for_stmt if_stmt simple-statement procedure-statement
 %type <funchead> procedure-heading
 %type <declVarLists> declarations-list
 %type <decl> declarations
@@ -58,7 +58,7 @@
 %type <expr> expression simple-expression term factor varfunc-designator number actual-parameter
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
-%type <number> integer-number digit-sequence  unsigned-digit-sequence
+%type <number> integer-number digit-sequence unsigned-digit-sequence
 %type <var_decl> formal-parameter-section
 %type <varvec> formal-parameter-list
 
@@ -129,33 +129,43 @@ compound-statement : T_BEGIN T_END {$$ = new NBlock(); std::cout << "compound-st
 identifier : T_IDENTIFIER { $$ = new NIdentifier(*$1); std::cout << "identifier1 "<< $$->name <<"\n "; }
                 ;
 
-statement-sequence : statement T_SEMICOLON {$$ = new NBlock(); $$->statements.push_back($1);}
-                | statement-sequence statement T_SEMICOLON { $1->statements.push_back($2); }
+statement-sequence : statement {$$ = new NBlock(); $$->statements.push_back($1);}
+                | statement-sequence statement { $1->statements.push_back($2); }
                 | statement-sequence T_SEMICOLON { $$ = $1; }
                 ;
 
-statement : 
-                assignment-statement { $$ = $1; std::cout << "assignment-statement\n ";}
+statement : simple-statement { $$ = $1; std::cout << "simple-statement\n ";}
                 | loop-statement {$$ = $1; std::cout << "loop-statement\n ";}
-                /* | if_stmt {$$=$1; std::cout << "if_stmt\n ";} */
+                | if_stmt {$$=$1; std::cout << "if_stmt\n ";}
+                ;
+
+simple-statement : assignment-statement { $$ = $1; std::cout << "assignment-statement\n ";}
+                | procedure-statement { $$ = $1; std::cout << "procedure-statement\n ";}
+                ;
+
+procedure-statement : procedure-identifier T_OPAREN actual-parameter-list T_CPAREN { $$ = new NMethodCall(*$1, *$3); std::cout << "procedure-call-statement with PARAMS\n";}
+                ;
+
+
+procedure-identifier : identifier { $$ = $1; std::cout << "procedure-identifier \n";}
                 ;
 
 assignment-statement : var-identifier T_ASSIGNMENT expression { $$ = new NAssignment(*$1, *$3); std::cout << "assignment-statement (, with ...)\n ";}
                 ;
 
 loop-statement : while_stmt {$$ = $1;}
-                /* | for_stmt {$$ = $1;} */
+                | for_stmt {$$ = $1;}
                 ;
 
 while_stmt : T_WHILE expression T_DO T_BEGIN statement-sequence T_END { $$ = new NForStatement($5, nullptr, $2); }
                 ;
 
-/* for_stmt : T_BEGIN T_FOR identifier T_TO number statement-sequence T_END { $$ = new NForStatement($8, $3, nullptr, $<integ>5, $<integ>7); }
+for_stmt :  T_FOR identifier T_ASSIGNMENT number T_TO number T_DO T_BEGIN statement-sequence T_END { $$ = new NForStatement($9, $2, nullptr, $<integ>4, $<integ>6); }
                 ;
 
-if_stmt : T_IF T_OPAREN expression T_CPAREN T_THEN statement-sequence T_END { $$ = new NIfStatement(*$3, *$6); }
-		| T_IF T_OPAREN expression T_CPAREN T_THEN statement-sequence T_ELSE statement-sequence T_END { $$ = new NIfStatement(*$3, *$6, $8); }
-        ; */
+if_stmt : T_IF expression T_THEN T_BEGIN statement-sequence T_END T_SEMICOLON{ $$ = new NIfStatement(*$2, *$5); }
+		| T_IF expression T_THEN T_BEGIN statement-sequence T_END T_ELSE T_BEGIN statement-sequence T_END T_SEMICOLON { $$ = new NIfStatement(*$2, *$5, $9); }
+                ;
 
 
 expression : simple-expression { $$ = $1; }
@@ -179,11 +189,16 @@ factor : number { $$ = $1; std::cout << "numfactor \n";}
                 ;
 
 number : integer-number { $$ = new NInteger($1);}
-                // | real-number { $$ = new NFloat($1);}
+                /* | real-number { $$ = new NFloat($1);} */
                 ;
 
 integer-number : digit-sequence {$$ = $1;}
                 ;
+
+
+/* real-number : digit-sequence T_DOT  */
+                 /* | digit-sequence T_DOT digit-sequence */
+                 /* ; */
 
 
 digit-sequence : unsigned-digit-sequence {$$ = $1;}
@@ -194,7 +209,7 @@ unsigned-digit-sequence : unsigned-digit-sequence T_DIGIT { $$ = $1 * 10 + $2; s
                 | T_DIGIT { $$ = $1; std::cout << "Current digit "<<$1<<", all number "<<$$<<"\n";}
                 ;
                 
-
+ 
 varfunc-designator : function-identifier T_OPAREN actual-parameter-list T_CPAREN { $$= new NMethodCall(*$1, *$3); }
 
 actual-parameter-list : actual-parameter { $$ = new ExpressionList(); $$->push_back($1); }

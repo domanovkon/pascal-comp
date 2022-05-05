@@ -57,7 +57,6 @@ extern "C" int yywrap() { return 1; }
 
 [0-9_] {yylval.number=atoi(yytext); return T_DIGIT;}
 
-
 "if"                    return TOKEN(T_IF);
 "then"                  return TOKEN(T_THEN);
 "else"                  return TOKEN(T_ELSE);
