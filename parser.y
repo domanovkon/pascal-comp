@@ -34,7 +34,7 @@
 }
 
 /* Терминалы */
-%token <string> T_IDENTIFIER
+%token <string> T_IDENTIFIER T_STRING
 %token <token> T_OPAREN T_CPAREN T_COMMA T_SEMICOLON T_COLON T_DOT
 %token <token> T_BEGIN T_END
 %token <token>  T_VAR
@@ -58,7 +58,7 @@
 %type <expr> expression simple-expression term factor varfunc-designator number actual-parameter
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
-%type <number> integer-number digit-sequence unsigned-digit-sequence
+%type <number> integer-number digit-sequence unsigned-digit-sequence real-number
 %type <var_decl> formal-parameter-section
 %type <varvec> formal-parameter-list
 
@@ -185,20 +185,20 @@ factor : number { $$ = $1; std::cout << "numfactor \n";}
                 | varfunc-designator { $$ = $1; std::cout << "varfactor \n";}
                 | T_OPAREN expression T_CPAREN { $$ = $2; std::cout << "expfactor \n";}
                 // | TNOT factor {}
-                /* | TSTRING { $$ = new NConstantString(*$1); std::cout << "strfactor \n";} */
+                | T_STRING { $$ = new NConstantString(*$1); std::cout << "strfactor \n";}
                 ;
 
 number : integer-number { $$ = new NInteger($1);}
-                /* | real-number { $$ = new NFloat($1);} */
+                | real-number { $$ = new NReal($1);} 
                 ;
 
 integer-number : digit-sequence {$$ = $1;}
                 ;
 
 
-/* real-number : digit-sequence T_DOT  */
-                 /* | digit-sequence T_DOT digit-sequence */
-                 /* ; */
+real-number : digit-sequence T_DOT 
+                | digit-sequence T_DOT digit-sequence 
+                ; 
 
 
 digit-sequence : unsigned-digit-sequence {$$ = $1;}

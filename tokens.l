@@ -7,6 +7,17 @@
 extern "C" int yywrap() { return 1; }
 %}
 
+
+%option 8bit
+alpha   [A-Za-z]
+U1      [\x80-\xbf]
+U2      [\xc2-\xdf]
+U3      [\xe0-\xef]
+U4      [\xf0-\xf4]
+ualpha  {alpha}|{U2}{U1}|{U3}{U1}{U1}|{U4}{U1}{U1}{U1}
+uname   \"({ualpha}|.)*\"
+uident   ({ualpha}|\_)*
+
 %%
 
 
@@ -68,6 +79,8 @@ extern "C" int yywrap() { return 1; }
 
 \"[a-zA-Z0-9_]*\" SAVE_TOKEN; return T_IDENTIFIER;
 [a-zA-Z_][a-zA-Z0-9_]* SAVE_TOKEN; return T_IDENTIFIER;
+
+{uname}  SAVE_TOKEN; return T_STRING;
 
 
 %%

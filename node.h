@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <vector>
-// #include <llvm/IR/Value.h>
+#include <llvm/IR/Value.h>
 
 class CodeGenContext;
 class NStatement;
@@ -28,7 +28,7 @@ class Node
 public:
     virtual ~Node() {}
     virtual std::string getTypeName() const = 0;
-    // virtual llvm::Value *codeGen(CodeGenContext &context) {}
+    virtual llvm::Value *codeGen(CodeGenContext &context) {}
 };
 
 
@@ -64,7 +64,7 @@ public:
     std::string name;
     NIdentifier() {}
     NIdentifier(std::string name) : name(name) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NIdentifier";
@@ -80,7 +80,7 @@ public:
     NExpression *assignmentExpr;
     NVariableDeclaration(const NIdentifier &type, NIdentifier &id) : type(type), id(id) {}
     NVariableDeclaration(const NIdentifier &type, NIdentifier &id, NExpression *assignmentExpr) : type(type), id(id), assignmentExpr(assignmentExpr) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
 
     void print()
     {
@@ -97,7 +97,7 @@ public:
     NIdentifier &type;
 
     NDeclarations(std::vector<NIdentifier*> &identList, NIdentifier &type) : identList(identList), type(type) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NDeclarations";
@@ -112,7 +112,7 @@ public:
     std::vector<NDeclarations*> declVarLists;
     // NDeclarations localVars;
     NBlock() {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NBlock";
@@ -175,7 +175,7 @@ public:
     NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body) : header(header), body(body)
     {
     }
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 
 
@@ -189,7 +189,7 @@ public:
     {
         std::cout << ":)";
     }
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NBinaryOperator";
@@ -203,7 +203,7 @@ class NInteger : public NExpression
 public:
     int value;
     NInteger(int value) : value(value) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NInteger";
@@ -217,10 +217,22 @@ class NReal : public NExpression
 public:
     double value;
     NReal(double value) : value(value) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NReal";
+    }
+};
+
+class NConstantString : public NExpression
+{
+public:
+    std::string value;
+    NConstantString(std::string value) : value(value) {}
+    virtual llvm::Value *codeGen(CodeGenContext &context);
+    std::string getTypeName() const override
+    {
+        return "NConstantString";
     }
 };
 
@@ -243,7 +255,7 @@ public:
         }
     }
 
-    // llvm::Value *codeGen(CodeGenContext &context) override;
+    llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
     {
@@ -267,7 +279,7 @@ public:
     //     return "NIfStatement";
     // }
 
-    // llvm::Value *codeGen(CodeGenContext &context) override;
+    llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
     {
@@ -284,7 +296,7 @@ public:
     {
         std::cout << ":)";
     }
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
 
     std::string getTypeName() const override
     {
@@ -299,7 +311,7 @@ public:
     ExpressionList arguments;
     NMethodCall(const NIdentifier &id, ExpressionList &arguments) : id(id), arguments(arguments) {}
     NMethodCall(const NIdentifier &id) : id(id) {}
-    // virtual llvm::Value *codeGen(CodeGenContext &context);
+    virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
         return "NMethodCall";

@@ -7,4 +7,5 @@ end
 begin
 	x := 1+2+5*8-5+(5*6); 
 	d := sum(3, 4);
+	sfasf := 1.0;
 end.
