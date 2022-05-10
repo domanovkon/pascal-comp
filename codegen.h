@@ -83,7 +83,6 @@ public:
     {
         for (auto it = blocks.rbegin(); it != blocks.rend(); it++)
         {
-            //            cout << "(*it)->locals[" << name << "] = " << (*it)->locals[name] << endl;
             if ((*it)->locals.find(name) != (*it)->locals.end())
             {
                 return (*it)->locals[name];
@@ -91,24 +90,6 @@ public:
         }
         return nullptr;
     };
-
-    // shared_ptr<NIdentifier> getSymbolType(string name)
-    // {
-    //     extern std::vector<int> st;
-    //     int *end = &st.back() + 1;
-    //     int *begin = end - st.size();
-    //     std::vector<CodeGenBlock*> stack_contents(begin, end);
-
-    //     for (auto it = stack_contents.rbegin(); it != stack_contents.rend(); it++)
-    //     {
-    //         //            cout << "(*it)->locals[" << name << "] = " << (*it)->locals[name] << endl;
-    //         if ((*it)->types.find(name) != (*it)->types.end())
-    //         {
-    //             return (*it)->types[name];
-    //         }
-    //     }
-    //     return nullptr;
-    // }
 
     void generateCode(NBlock &root);
     GenericValue runCode();

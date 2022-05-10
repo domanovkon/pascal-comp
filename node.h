@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <math.h> 
 #include <llvm/IR/Value.h>
 
 class CodeGenContext;
@@ -216,7 +217,20 @@ class NReal : public NExpression
 {
 public:
     double value;
-    NReal(double value) : value(value) {}
+    // int intValue;
+    // int realValue;
+    // NReal(int intValue, int realVaue) : intValue(intValue), realValue(realValue) {
+    //     std::cout << "real value: " << intValue << "...." <<realValue << "\n";
+    //     value = realValue;
+    //     while(value > 1) {
+    //         value /= 10;
+    //     }
+    //     value += intValue;
+    //     std::cout << "real value: " << intValue << "...." <<realValue << "\n";
+    // }
+    NReal(double value) : value(value) {
+        std::cout << "real value: " << value << "\n";
+    }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {

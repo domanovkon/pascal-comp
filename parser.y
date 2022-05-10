@@ -58,12 +58,12 @@
 %type <expr> expression simple-expression term factor varfunc-designator number actual-parameter
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
-%type <number> integer-number digit-sequence unsigned-digit-sequence real-number
+%type <number> integer-number digit-sequence unsigned-digit-sequence
 %type <var_decl> formal-parameter-section
 %type <varvec> formal-parameter-list
 
 %start program
-%left T_CLT T_CGT T_CNE T_CLE T_CGE
+%left T_CLT T_CGT T_CNE T_CLE T_CGE T_CEQ
 %left T_PLUS T_MINUS
 %left T_MUL T_DIV
 %left UMINUS
@@ -78,7 +78,7 @@ program : T_PROGRAM identifier T_SEMICOLON function T_DOT  { programBlock = $4; 
 
                 ;
 function : procedure-declaration { $$ = new NBlock(); typeid($1).name(); $$->statements.push_back($1); std::cout << "function\n "; }
-                |       function procedure-declaration { $1->statements.push_back($2); std::cout << "function\n ";}
+                | function procedure-declaration { $1->statements.push_back($2); std::cout << "function\n ";}
                 ;
 
 procedure-declaration : procedure-heading procedure-body { $$ = new NFunctionDeclaration(*$1, *$2); std::cout << "procedure-declaration\n "; }           
@@ -96,7 +96,7 @@ formal-parameter-list : formal-parameter-list T_COMMA formal-parameter-section {
 formal-parameter-section : identifier T_COLON type-identifier  { $$ = new NVariableDeclaration(*$3, *$1);}
                 ;
 
-type-identifier : T_INTEGER {$$ = new NIdentifier("int"); std::cout << "type-identifier\n ";}
+type-identifier : T_INTEGER {$$ = new NIdentifier("integer"); std::cout << "type-identifier\n ";}
                 | T_REAL {$$ = new NIdentifier("real"); std::cout << "type-identifier\n ";}
                 ;
 
@@ -189,16 +189,19 @@ factor : number { $$ = $1; std::cout << "numfactor \n";}
                 ;
 
 number : integer-number { $$ = new NInteger($1);}
-                | real-number { $$ = new NReal($1);} 
+                /* | real-number { $$ = $1; }  */
                 ;
 
 integer-number : digit-sequence {$$ = $1;}
                 ;
+        
+/* real-number : digit-sequence T_DOT unsigned-digit-sequence; */
 
 
-real-number : digit-sequence T_DOT 
-                | digit-sequence T_DOT digit-sequence 
-                ; 
+/* real-number : digit-sequence T_DOT unsigned-digit-sequence { $$ = new NReal($1, $3);}  */
+                /* ; */
+/* real-number : T_DOUBLE { $$ = new NReal($1); } */
+                /* ; */
 
 
 digit-sequence : unsigned-digit-sequence {$$ = $1;}
