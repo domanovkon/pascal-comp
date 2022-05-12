@@ -65,8 +65,7 @@ uident   ({ualpha}|\_)*
 
 "write"                 {yylval.string=new std::string("write"); return T_IDENTIFIER;}
 
-
-[0-9_] {yylval.number=atoi(yytext); return T_DIGIT;}
+[0-9_]                  {yylval.number=atoi(yytext); return T_DIGIT;}
 
 "if"                    return TOKEN(T_IF);
 "then"                  return TOKEN(T_THEN);

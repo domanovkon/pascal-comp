@@ -67,42 +67,72 @@ void CodeGenContext::generateCode(NBlock &root)
 }
 
 llvm::Value *NAssignment::codeGen(CodeGenContext &context)
-{ ///------
-    // cout << "Generating assignment of " << lhs.name << " = " << endl;
+{
+    cout << "Generating assignment of " << lhs.name << " = " << endl;
 
-    // if (lhs.name.compare("res") == 0)
-    // {
-    //     cout << "Generating return statement" << endl;
-    //     Value *returnValue = rhs.codeGen(context);
 
-    //     Value *returnValue2 = nullptr;
-    //     if (returnValue->getType()->getTypeID() == llvm::Type::IntegerTyID)
-    //     {
-    //         returnValue2 = context.builder.CreateRet(returnValue);
-    //     }
-    //     else if (returnValue->getType()->getTypeID() == llvm::Type::FloatTyID)
-    //     {
-    //         returnValue2 = context.builder.CreateRet(returnValue);
-    //     }
-    //     return returnValue2;
-    // }
 
-    // Value *dst = context.getSymbol(lhs.name)->getValue();
-    // if (!dst)
-    // {
-    //     return LogErrorV("Undeclared variable");
-    // }
-    // Value *exp = rhs.codeGen(context);
-    // if (exp != NULL)
-    // {
-    //     context.builder.CreateStore(exp, dst);
-    // }
-    // return dst;
+    // cout << " func header "<< context.locals() << " = " << endl;
+    // for (auto v : context.getFunctions())
+        // std::cout << " func header "<<  << "\n";
+    
+
+
+    // Function *theFunction = context.builder.GetInsertBlock()->getParent();
+
+    // std::cout << " func header "<< *theFunction  << "\n";
+
+    if (lhs.name.compare("result") == 0)
+    {
+        cout << "Generating return statement" << endl;
+        Value *returnValue = rhs.codeGen(context);
+        Value *returnValue2 = nullptr;
+        if (returnValue->getType()->getTypeID() == llvm::Type::IntegerTyID)
+        {
+            returnValue2 = context.builder.CreateRet(returnValue);
+        }
+        else if (returnValue->getType()->getTypeID() == llvm::Type::DoubleTyID)
+        {
+            returnValue2 = context.builder.CreateRet(returnValue);
+        }
+        return returnValue2;
+    }
+
+    cout << "1" << endl;
+
+    Value *dst = context.getSymbol(lhs.name)->getValue();
+    cout << "11" << endl;
+    cout << lhs.name << endl;
+    
+    
+    // auto dstType = context.getSymbolType(lhs->name);
+    // string dstTypeStr = dstType->name;
+    if (!dst)
+    {
+        cout << "2" << endl;
+        return LogErrorV("Undeclared variable");
+    }
+    cout << "3" << endl;
+    Value *exp = rhs.codeGen(context);
+    cout << "4" << endl;
+
+    // cout << "dst typeid = " << TypeSystem::llvmTypeToStr(context.typeSystem.getVarType(dstTypeStr)) << endl;
+    // cout << "exp typeid = " << TypeSystem::llvmTypeToStr(exp) << endl;
+
+    // exp = context.typeSystem.cast(exp, context.typeSystem.getVarType(dstTypeStr), context.currentBlock());
+    if (exp != NULL)
+    {
+        context.builder.CreateStore(exp, dst);
+    }
+    return dst;
 }
 
 llvm::Value *NDeclarations::codeGen(CodeGenContext &context)
 {
-    cout << "Generating declaration: " << endl;
+    cout << "Generating declaration list: " << endl;
+    for (auto it = this->identList.begin(); it != this->identList.end(); it++){
+        cout << *it << endl;
+    }
 }
 
 llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
@@ -113,8 +143,10 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
     Value *R = this->rhs.codeGen(context);
     bool fp = false;
 
+
+    // type cast
     if ((L->getType()->getTypeID() == Type::DoubleTyID) || (R->getType()->getTypeID() == Type::DoubleTyID))
-    { // type upgrade
+    {
         fp = true;
         if ((R->getType()->getTypeID() != Type::DoubleTyID))
         {
@@ -144,9 +176,9 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
     case T_DIV:
         return fp ? context.builder.CreateFDiv(L, R, "divftmp") : context.builder.CreateSDiv(L, R, "divtmp");
     case T_AND:
-        return fp ? LogErrorV("Double type has no AND operation") : context.builder.CreateAnd(L, R, "andtmp");
+        return fp ? LogErrorV("Real type has no AND operation") : context.builder.CreateAnd(L, R, "andtmp");
     case T_OR:
-        return fp ? LogErrorV("Double type has no OR operation") : context.builder.CreateOr(L, R, "ortmp");
+        return fp ? LogErrorV("Real type has no OR operation") : context.builder.CreateOr(L, R, "ortmp");
 
     case T_CLT:
         return fp ? context.builder.CreateFCmpULT(L, R, "cmpftmp") : context.builder.CreateICmpULT(L, R, "cmptmp");
@@ -198,7 +230,7 @@ Value *NConstantString::codeGen(CodeGenContext &context)
 }
 
 llvm::Value *NIdentifier::codeGen(CodeGenContext &context)
-{ /// -----
+{
     std::cout << "Creating identifier reference: " << name << std::endl;
 
     for (auto it = context.getBlocks()->begin(); it != context.getBlocks()->end(); it++)
@@ -283,13 +315,11 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
     if (header.type.name.compare("integer") == 0)
     {
         t = Type::IntegerTyID;
-        std::cout << "int typ: " << std::endl;
         
     }
     else if (header.type.name.compare("real") == 0)
     {
-        t = Type::FloatTyID;
-        std::cout << "real typ: " << std::endl;
+        t = Type::DoubleTyID;
     }
 
     context.getFunctions()[header.id.name.c_str()] = new Symbol(t, bblock);
@@ -315,10 +345,18 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
         }
         else if ((*origin_arg)->type.name.compare("real") == 0)
         {
-            t = Type::FloatTyID;
+            t = Type::DoubleTyID;
         }
 
         context.locals()[(*origin_arg)->id.name] = new Symbol(t, argAlloc);
+
+        Type::TypeID funcTp = Type::LabelTyID;
+        // context.locals()[header.id.name + "fun"] = new Symbol(funcTp, nullptr);
+
+
+        // context.locals()[id.name] = new Symbol(t, inst);
+        
+        
         context.setFuncArg((*origin_arg)->id.name, true);
         origin_arg++;
     }
@@ -410,15 +448,15 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
     }
     else if (this->type.name.compare("real") == 0)
     {
-        t = Type::FloatTyID;
+        t = Type::DoubleTyID;
     }
     context.locals()[id.name] = new Symbol(t, inst);
 
-    // if (this->assignmentExpr != nullptr)
-    // {
-        // NAssignment assignment(this->id, *this->assignmentExpr);
-        // assignment.codeGen(context);
-    // }
+    if (this->assignmentExpr != nullptr)
+    {
+        NAssignment assignment(this->id, *this->assignmentExpr);
+        assignment.codeGen(context);
+    }
     return inst;
 }
 

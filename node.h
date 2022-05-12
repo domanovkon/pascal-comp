@@ -217,17 +217,6 @@ class NReal : public NExpression
 {
 public:
     double value;
-    // int intValue;
-    // int realValue;
-    // NReal(int intValue, int realVaue) : intValue(intValue), realValue(realValue) {
-    //     std::cout << "real value: " << intValue << "...." <<realValue << "\n";
-    //     value = realValue;
-    //     while(value > 1) {
-    //         value /= 10;
-    //     }
-    //     value += intValue;
-    //     std::cout << "real value: " << intValue << "...." <<realValue << "\n";
-    // }
     NReal(double value) : value(value) {
         std::cout << "real value: " << value << "\n";
     }

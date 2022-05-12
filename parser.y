@@ -21,6 +21,7 @@
         std::vector<NDeclarations*> *declVarLists;
         std::vector<NVariableDeclaration*> *varvec;
         int number;
+        double dblNumber;
         int token;
         NInteger *integ;
         NDeclarations *decl;
@@ -46,7 +47,6 @@
 %token <token> T_IF T_THEN T_ELSE T_WHILE T_DO T_FOR T_TO
 %token <number> T_DIGIT;
 
-
 /* Нетерминалы */
 %type <block> program function statement-sequence procedure-body compound-statement
 %type <ident> identifier type-identifier var-identifier function-identifier procedure-identifier
@@ -58,7 +58,8 @@
 %type <expr> expression simple-expression term factor varfunc-designator number actual-parameter
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
-%type <number> integer-number digit-sequence unsigned-digit-sequence
+%type <number> integer-number digit-sequence unsigned-digit-sequence //real-number
+%type <dblNumber> real-number
 %type <var_decl> formal-parameter-section
 %type <varvec> formal-parameter-list
 
@@ -189,27 +190,20 @@ factor : number { $$ = $1; std::cout << "numfactor \n";}
                 ;
 
 number : integer-number { $$ = new NInteger($1);}
-                /* | real-number { $$ = $1; }  */
+                | real-number {$$ = new NReal($1);}
                 ;
 
-integer-number : digit-sequence {$$ = $1;}
+integer-number : digit-sequence {$$ = $1; std::cout << "integer-number \n";}
                 ;
         
-/* real-number : digit-sequence T_DOT unsigned-digit-sequence; */
-
-
-/* real-number : digit-sequence T_DOT unsigned-digit-sequence { $$ = new NReal($1, $3);}  */
-                /* ; */
-/* real-number : T_DOUBLE { $$ = new NReal($1); } */
-                /* ; */
-
+real-number : digit-sequence T_DOT unsigned-digit-sequence { $$ = std::stod(to_string($1) + "." + to_string($3)); std::cout << "real-number \n";};
 
 digit-sequence : unsigned-digit-sequence {$$ = $1;}
                 | sign unsigned-digit-sequence %prec UMINUS { if($1 == T_MINUS) {$$=-1*$2; std::cout << "set Sign "<<$$<<"\n";} else { $$ = $2; } }
                 ;
 
 unsigned-digit-sequence : unsigned-digit-sequence T_DIGIT { $$ = $1 * 10 + $2; std::cout << "Current digit "<<$2<<", all number "<<$$<<"\n";}
-                | T_DIGIT { $$ = $1; std::cout << "Current digit "<<$1<<", all number "<<$$<<"\n";}
+                | T_DIGIT { $$ = $1; std::cout << "Current digit2 "<<$1<<", all number "<<$$<<"\n";}
                 ;
                 
  

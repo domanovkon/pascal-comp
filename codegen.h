@@ -85,9 +85,13 @@ public:
         {
             if ((*it)->locals.find(name) != (*it)->locals.end())
             {
+                // for (auto v : locals)
+                    // std::cout << v-> << "\n";
+                cout << name << endl;
                 return (*it)->locals[name];
             }
         }
+        cout << "null" << endl;
         return nullptr;
     };
 
