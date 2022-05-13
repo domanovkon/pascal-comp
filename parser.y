@@ -73,16 +73,34 @@
 
                 
 program : T_PROGRAM identifier T_SEMICOLON function T_DOT  { programBlock = $4; std::cout << "program\n "; }
-                | T_PROGRAM identifier T_SEMICOLON T_VAR declarations-list function T_DOT { programBlock = $6; programBlock -> declVarLists = *$5 ; std::cout << "program\n "; }
+                /* | T_PROGRAM identifier T_SEMICOLON T_VAR declarations-list function T_DOT { programBlock = $6; programBlock -> declVarLists = *$5 ; std::cout << "program\n "; } */
                 | function T_DOT { programBlock = $1; std::cout << "program\n "; }
                 ;             
 
-                ;
+                
+declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->push_back($1); std::cout << "decl-list\n "; }
+                | declarations-list declarations T_SEMICOLON { $$->push_back($2); std::cout << "decl-list\n ";}
+		;
+
+declarations : identifier-list T_COLON type-identifier {$$ = new NDeclarations(*$1, *$3); std::cout << "decl\n ";}
+		;                
+
+
+identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); std::cout << "ident-list\n ";}
+		| identifier-list T_COMMA identifier { $$->push_back($3); std::cout << "ident-list\n ";} 
+		;
+
+
+
+
+
+
 function : procedure-declaration { $$ = new NBlock(); typeid($1).name(); $$->statements.push_back($1); std::cout << "function\n "; }
                 | function procedure-declaration { $1->statements.push_back($2); std::cout << "function\n ";}
                 ;
 
 procedure-declaration : procedure-heading procedure-body { $$ = new NFunctionDeclaration(*$1, *$2); std::cout << "procedure-declaration\n "; }           
+                |  procedure-heading T_VAR declarations-list procedure-body { $$ = new NFunctionDeclaration(*$1, *$4, $3); std::cout << "procedure-declaration\n "; }
                 
 
 procedure-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "procedure-heading\n "; }
@@ -106,18 +124,6 @@ var-identifier : identifier {$$ =$1; std::cout << "var-identifier \n";}
 
 function-identifier : identifier {$$ =$1; std::cout << "function-identifier \n";}
                 ;
-
-		
-declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->push_back($1); std::cout << "decl-list\n "; }
-                | declarations-list declarations T_SEMICOLON { $$->push_back($2); std::cout << "decl-list\n ";}
-		;
-
-declarations : identifier-list T_COLON type-identifier {$$ = new NDeclarations(*$1, *$3); std::cout << "decl\n ";}
-		;
-
-identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); std::cout << "ident-list\n ";}
-		| identifier-list T_COMMA identifier { $$->push_back($3); std::cout << "ident-list\n ";} 
-		;
 
 procedure-body : compound-statement { $$ = $1; std::cout << "procedure-body\n "; }
                 ;

@@ -149,6 +149,7 @@ class NFunctionDeclaration : public NStatement
 public:
     NFunctionHeaderDeclaration &header;
     NBlock &body;
+    std::vector<NDeclarations*> *decllist;
 
     void print()
     {
@@ -176,6 +177,11 @@ public:
     NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body) : header(header), body(body)
     {
     }
+
+    NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body, std::vector<NDeclarations*> *decllist) : header(header), body(body), decllist(decllist)
+    {
+    }
+
     virtual llvm::Value *codeGen(CodeGenContext &context);
 };
 

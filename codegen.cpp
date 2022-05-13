@@ -361,6 +361,19 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
         origin_arg++;
     }
 
+    if(this->decllist != nullptr){
+        for (auto &ir_it1 : this->decllist[0])
+        {
+            for (auto &ir_it2 : ir_it1->identList)
+            {
+                std::cout << ir_it2->name.c_str();
+                AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), nullptr, ir_it2->name.c_str());
+                context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);
+
+            }        
+        }
+    }
+
     body.codeGen(context);
 
     // if (header.id.name.compare("") == 0)
