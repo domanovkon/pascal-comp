@@ -6,14 +6,10 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CallingConv.h>
-// #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/IR/IRBuilder.h>
-// #include <llvm/ModuleProvider.h>
-// #include <llvm/Target/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-// #include <llvm/ExecutionEngine/JIT.h>
 #include <llvm/Support/raw_ostream.h>
 #include "llvm/IR/Module.h"
 #include <llvm/IR/Type.h>
@@ -21,23 +17,6 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Instructions.h>
-// #include <llvm/Module.h>
-// #include <llvm/Function.h>
-// #include <llvm/Type.h>
-// #include <llvm/DerivedTypes.h>
-// #include <llvm/LLVMContext.h>
-// #include <llvm/PassManager.h>
-// #include <llvm/Instructions.h>
-// #include <llvm/CallingConv.h>
-// #include <llvm/Bitcode/ReaderWriter.h>
-// #include <llvm/Analysis/Verifier.h>
-// #include <llvm/Assembly/PrintModulePass.h>
-// #include <llvm/Support/IRBuilder.h>
-// #include <llvm/ModuleProvider.h>
-// #include <llvm/Target/TargetSelect.h>
-// #include <llvm/ExecutionEngine/GenericValue.h>
-// #include <llvm/ExecutionEngine/JIT.h>
-// #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/Value.h>
 
 using namespace llvm;
@@ -60,8 +39,9 @@ class CodeGenBlock
 {
 public:
     BasicBlock *block;
-    std::map<std::string, Symbol *> locals;
+    std::map<std::string, Symbol *> locals; // Локальные переменные
     std::map<string, bool> isFuncArg;
+    std::string currentFunctionName; // Для return-a
 };
 
 class CodeGenContext
@@ -85,8 +65,6 @@ public:
         {
             if ((*it)->locals.find(name) != (*it)->locals.end())
             {
-                // for (auto v : locals)
-                    // std::cout << v-> << "\n";
                 cout << name << endl;
                 return (*it)->locals[name];
             }
@@ -98,9 +76,8 @@ public:
     void generateCode(NBlock &root);
     GenericValue runCode();
     std::map<std::string, Symbol *> &locals() { return blocks.back()->locals; }
-    std::map<std::string, Symbol *> &getFunctions() {
-        return functions; //blocks.back()->functions; 
-        };
+    std::string &currentFunctionName() { return blocks.back()->currentFunctionName; };
+    std::map<std::string, Symbol *> &getFunctions() { return functions; };
     BasicBlock *currentBlock() { return blocks.back()->block; }
 
     std::vector<CodeGenBlock *> *getBlocks()
@@ -135,6 +112,32 @@ public:
         void setFuncArg(string name, bool value){
         cout << "Set " << name << " as func arg" << endl;
         blocks.back()->isFuncArg[name] = value;
+    }
+};
+
+class CodeGenFunc {
+public:
+
+static llvm::Value *myprintf(Module *module, IRBuilder<> *builder, LLVMContext* context, std::vector<llvm::Value *> args){
+    
+    FunctionCallee CalleeF = module->getOrInsertFunction("printf",
+                                                        FunctionType::get(IntegerType::getInt32Ty(*context),
+                                                        PointerType::get(Type::getInt8Ty(*context), 0), true /* this is var arg func type*/));
+    std::string newformat;
+    for(auto it=args.begin(); it!=args.end(); it++){
+        std::cout << (*it)->getType()->getTypeID() << std::endl;
+        if ((*it)->getType()->getTypeID()==llvm::Type::PointerTyID) {
+            newformat.append("%s");
+        } else if((*it)->getType()->getTypeID()==llvm::Type::IntegerTyID) {
+            newformat.append("%i");
+        } else if ((*it)->getType()->getTypeID()==llvm::Type::DoubleTyID) {
+            newformat.append("%f");
+        }    
+    }
+    llvm::Value *strVal = builder->CreateGlobalStringPtr(newformat);
+    args.insert(args.begin(), strVal);
+    builder->CreateCall(CalleeF, args, "printfCall");
+    return nullptr; // для варнинга
     }
 };
 

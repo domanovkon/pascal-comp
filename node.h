@@ -33,7 +33,6 @@ public:
 };
 
 
-
 class NExpression : public Node
 {
 public:
@@ -44,6 +43,7 @@ public:
         return "NExpression";
     }
 };
+
 
 class NStatement : public Node
 {
@@ -85,15 +85,14 @@ public:
 
     void print()
     {
-        // std::cout << "" <<std::endl;
+        std::cout << "Variable Declaration " << &id <<std::endl;
     }
 };
+
 
 class NDeclarations : public NStatement
 {
 public:
-    // StatementList statements;
-    // LocalVariableList localVars;
     std::vector<NIdentifier*> &identList;
     NIdentifier &type;
 
@@ -105,13 +104,13 @@ public:
     }
 };
 
+
 class NBlock : public NStatement
 {
 public:
     StatementList statements;
     LocalVariableList localVars;
     std::vector<NDeclarations*> declVarLists;
-    // NDeclarations localVars;
     NBlock() {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
@@ -154,25 +153,8 @@ public:
     void print()
     {
         std::cout << "Function with Id = '" << header.id.name << "' have "
-                  << "statements " << body.statements.size() << std::endl;
+                  << "Statements " << body.statements.size() << std::endl;
     }
-
-    // NBlock& block;
-
-    // NFunctionDeclaration(NIdentifier* type, NIdentifier* id, VariableList* arguments, NBlock* block, VariableList* localVariabless){
-    //     std::string idName = std::string();
-    //     if(id!=0){
-    //         idName = id->name;
-    //     }
-    //     std::cout << " Func {" << type << ", " << idName << ", " << arguments << ", " << block << " }\n";
-
-    //     if(arguments!=NULL){
-    //         for (int i = 0; i < (*arguments).size(); i++)
-    //         {
-    //             std::cout << arguments->at(i)->type.name << std::endl;
-    //         }
-    //     }
-    // }
 
     NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body) : header(header), body(body)
     {
@@ -194,7 +176,7 @@ public:
     NExpression &rhs;
     NBinaryOperator(NExpression &lhs, int op, NExpression &rhs) : lhs(lhs), rhs(rhs), op(op)
     {
-        std::cout << ":)";
+        std::cout << "Binary Operator";
     }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
@@ -202,7 +184,6 @@ public:
         return "NBinaryOperator";
     }
 };
-
 
 
 class NInteger : public NExpression
@@ -216,7 +197,6 @@ public:
         return "NInteger";
     }
 };
-
 
 
 class NReal : public NExpression
@@ -233,6 +213,7 @@ public:
     }
 };
 
+
 class NConstantString : public NExpression
 {
 public:
@@ -244,6 +225,7 @@ public:
         return "NConstantString";
     }
 };
+
 
 class NForStatement : public NStatement
 {
@@ -272,6 +254,7 @@ public:
     }
 };
 
+
 class NIfStatement : public NStatement
 {
 public:
@@ -284,10 +267,6 @@ public:
     {
     }
 
-    // string getTypeName() const override {
-    //     return "NIfStatement";
-    // }
-
     llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
@@ -295,6 +274,7 @@ public:
         return "NIfStatement";
     }
 };
+
 
 class NAssignment : public NStatement
 {
@@ -313,6 +293,7 @@ public:
     }
 };
 
+
 class NMethodCall : public NStatement, public NExpression
 {
 public:
@@ -326,5 +307,6 @@ public:
         return "NMethodCall";
     }
 };
+
 
 #endif

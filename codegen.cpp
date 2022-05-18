@@ -6,10 +6,8 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/Support/raw_ostream.h>
-//#include <llvm/IR/Verifier.h>
 #include "node.h"
 #include "codegen.h"
-#include "codegenProcedures.h"
 #include "parser.hpp"
 #define ISTYPE(value, id) (value->getType()->getTypeID() == id)
 
@@ -70,19 +68,7 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context)
 {
     cout << "Generating assignment of " << lhs.name << " = " << endl;
 
-
-
-    // cout << " func header "<< context.locals() << " = " << endl;
-    // for (auto v : context.getFunctions())
-        // std::cout << " func header "<<  << "\n";
-    
-
-
-    // Function *theFunction = context.builder.GetInsertBlock()->getParent();
-
-    // std::cout << " func header "<< *theFunction  << "\n";
-
-    if (lhs.name.compare("result") == 0)
+    if (lhs.name.compare(context.currentFunctionName()) == 0)
     {
         cout << "Generating return statement" << endl;
         Value *returnValue = rhs.codeGen(context);
@@ -98,28 +84,13 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context)
         return returnValue2;
     }
 
-    cout << "1" << endl;
-
     Value *dst = context.getSymbol(lhs.name)->getValue();
-    cout << "11" << endl;
-    cout << lhs.name << endl;
     
-    
-    // auto dstType = context.getSymbolType(lhs->name);
-    // string dstTypeStr = dstType->name;
     if (!dst)
     {
-        cout << "2" << endl;
         return LogErrorV("Undeclared variable");
     }
-    cout << "3" << endl;
     Value *exp = rhs.codeGen(context);
-    cout << "4" << endl;
-
-    // cout << "dst typeid = " << TypeSystem::llvmTypeToStr(context.typeSystem.getVarType(dstTypeStr)) << endl;
-    // cout << "exp typeid = " << TypeSystem::llvmTypeToStr(exp) << endl;
-
-    // exp = context.typeSystem.cast(exp, context.typeSystem.getVarType(dstTypeStr), context.currentBlock());
     if (exp != NULL)
     {
         context.builder.CreateStore(exp, dst);
@@ -133,6 +104,7 @@ llvm::Value *NDeclarations::codeGen(CodeGenContext &context)
     for (auto it = this->identList.begin(); it != this->identList.end(); it++){
         cout << *it << endl;
     }
+    return NULL;
 }
 
 llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
@@ -144,7 +116,7 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
     bool fp = false;
 
 
-    // type cast
+    // Приведение типов
     if ((L->getType()->getTypeID() == Type::DoubleTyID) || (R->getType()->getTypeID() == Type::DoubleTyID))
     {
         fp = true;
@@ -264,36 +236,18 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context)
     return NULL;
 }
 
-// llvm::Value *NExpressionStatement::codeGen(CodeGenContext &context)
-// {
-    // return this->expression.codeGen(context);
-// }
 
-Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
+Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
 {
     vector<Type *> argTypes;
     VariableList::const_iterator it;
 
-    std::cout << "123: " << std::endl;
-    
     for (it = header.arguments.begin(); it != header.arguments.end(); it++)
     {
         argTypes.push_back(typeOf(&((**it).type), &context.llvmContext));
     }
 
-    // for (auto v : header.arguments)
-        // std::cout << v->type.name << "\n";
-
-    // std::cout <<  header.type.name << std::endl;
-    
-
-    std::cout << "1234: " << std::endl;
-
-    
     FunctionType *ftype = FunctionType::get(typeOf(&(header.type), &context.llvmContext), argTypes, false);
-
-
-    std::cout << "12345: " << std::endl;
 
     Function *function;
     if (header.id.name.compare("") == 0)
@@ -330,9 +284,6 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
 
     for (auto &ir_arg_it : function->args())
     {
-
-        // std::cout << ir_arg_it.getType() << std::endl;
-
         ir_arg_it.setName((*origin_arg)->id.name);
         Value *argAlloc;
         argAlloc = (*origin_arg)->codeGen(context);
@@ -351,11 +302,6 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
         context.locals()[(*origin_arg)->id.name] = new Symbol(t, argAlloc);
 
         Type::TypeID funcTp = Type::LabelTyID;
-        // context.locals()[header.id.name + "fun"] = new Symbol(funcTp, nullptr);
-
-
-        // context.locals()[id.name] = new Symbol(t, inst);
-        
         
         context.setFuncArg((*origin_arg)->id.name, true);
         origin_arg++;
@@ -366,25 +312,31 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
         {
             for (auto &ir_it2 : ir_it1->identList)
             {
-                std::cout << ir_it2->name.c_str();
-                AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), nullptr, ir_it2->name.c_str());
-                context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);
-
+                Type::TypeID t = Type::VoidTyID;
+                if (ir_it1->type.name.compare("integer") == 0)
+                {
+                    t = Type::IntegerTyID;
+                    AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), nullptr, ir_it2->name.c_str());
+                    context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);    
+                }
+                else if (ir_it1->type.name.compare("real") == 0)
+                {
+                    t = Type::DoubleTyID;
+                    AllocaInst* inst = context.builder.CreateAlloca(Type::getDoubleTy(context.llvmContext), nullptr, ir_it2->name.c_str());
+                    context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);
+                }
             }        
         }
     }
 
+    context.currentFunctionName() = (header.id.name);
+
     body.codeGen(context);
 
-    // if (header.id.name.compare("") == 0)
-    // {
-    //     ReturnInst::Create(context.context, bblock);
-    // }
-
-    if(context.getFunctions()[header.id.name]->getType() == Type::TypeID::VoidTyID){
-        if(context.lastBlock==nullptr){
+    if (context.getFunctions()[header.id.name]->getType() == Type::TypeID::VoidTyID) {
+        if (context.lastBlock == nullptr) {
             ReturnInst::Create(context.llvmContext, bblock);
-        } else{
+        } else {
             ReturnInst::Create(context.llvmContext, context.lastBlock);
             context.lastBlock = nullptr;
         }
@@ -399,49 +351,46 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context) ///// ---------
 
 
 llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
-{ ////++++++++++++
-//     cout << "Generating method call of " << this->id.name << endl;
+{ 
+    cout << "Generating method call of " << this->id.name << endl;
+    if (id.name.compare("write") == 0)
+    {
+        std::vector<Value *> argsv;
+        for (auto it = arguments.begin(); it != arguments.end(); it++)
+        {
+            argsv.push_back((*it)->codeGen(context));
+            // проверка на неудачную кодогенерацию
+            if (!argsv.back())
+            {
+                return nullptr;
+            }
+        }
+        return CodeGenFunc::myprintf(context.module, &context.builder, &context.llvmContext, argsv);
+    }
 
-//     if (id.name.compare("вывод") == 0)
-//     {
-//         std::string st("kek");
-//         std::vector<Value *> argsv;
-//         for (auto it = arguments.begin(); it != arguments.end(); it++)
-//         {
-//             argsv.push_back((*it)->codeGen(context));
-//             if (!argsv.back())
-//             { // if any argument codegen fail
-//                 return nullptr;
-//             }
-//         }
-
-//         return CodeGenProcedures::myprintf(context.module, &context.builder, &context.llvmContext, st, argsv);
-//     }
-
-//     Function *calleeF = context.module->getFunction(this->id.name);
-//     if (!calleeF)
-//     {
-//         LogErrorV("Function name not found");
-//     }
-//     if (calleeF->arg_size() != this->arguments.size())
-//     {
-//         LogErrorV("Function arguments size not match, calleeF=" + std::to_string(calleeF->size()) + ", this->arguments=" + std::to_string(this->arguments.size()));
-//     }
-//     std::vector<Value *> argsv;
-//     for (auto it = this->arguments.begin(); it != this->arguments.end(); it++)
-//     {
-//         argsv.push_back((*it)->codeGen(context));
-//         if (!argsv.back())
-//         { // if any argument codegen fail
-//             return nullptr;
-//         }
-//     }
-// if (context.getFunctions()[id.name]->getType() == Type::VoidTyID)
-//     {
-//         return context.builder.CreateCall(calleeF, argsv);
-//     }
-    // return context.builder.CreateCall(calleeF, argsv, "calltmp");
-    return NULL;
+    Function *calleeF = context.module->getFunction(this->id.name);
+    if (!calleeF)
+    {
+        LogErrorV("Function name not found");
+    }
+    if (calleeF->arg_size() != this->arguments.size())
+    {
+        LogErrorV("Function arguments size not match, calleeF=" + std::to_string(calleeF->size()) + ", this->arguments=" + std::to_string(this->arguments.size()));
+    }
+    std::vector<Value *> argsv;
+    for (auto it = this->arguments.begin(); it != this->arguments.end(); it++)
+    {
+        argsv.push_back((*it)->codeGen(context));
+        if (!argsv.back())
+        { // if any argument codegen fail
+            return nullptr;
+        }
+    }
+    if (context.getFunctions()[id.name]->getType() == Type::VoidTyID)
+    {   
+        return context.builder.CreateCall(calleeF, argsv);
+    }
+    return context.builder.CreateCall(calleeF, argsv, "calltmp");
 }
 
 llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
@@ -464,12 +413,6 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
         t = Type::DoubleTyID;
     }
     context.locals()[id.name] = new Symbol(t, inst);
-
-    if (this->assignmentExpr != nullptr)
-    {
-        NAssignment assignment(this->id, *this->assignmentExpr);
-        assignment.codeGen(context);
-    }
     return inst;
 }
 
