@@ -259,8 +259,8 @@ class NIfStatement : public NStatement
 {
 public:
     NExpression &condition;
-    NBlock &trueBlock;  // should not be null
-    NBlock *falseBlock; // can be null
+    NBlock &trueBlock; // не может быть пустым
+    NBlock *falseBlock; // может быть пустым
 
     NIfStatement(NExpression &cond, NBlock &blk, NBlock *blk2 = nullptr)
         : condition(cond), trueBlock(blk), falseBlock(blk2)

@@ -6,6 +6,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "node.h"
 #include "codegen.h"
 #include "parser.hpp"
@@ -24,25 +25,6 @@ static Type *typeOf(const NIdentifier *type, LLVMContext *ctx)
     return Type::getVoidTy(*ctx);
 }
 
-static Value *CastToBoolean(CodeGenContext &context, Value *condValue)
-{
-
-    // if (ISTYPE(condValue, Type::IntegerTyID))
-    // {
-    //     condValue = context.builder.CreateIntCast(condValue, Type::getInt1Ty(context.llvmContext), true);
-    //     return context.builder.CreateICmpNE(condValue, ConstantInt::get(Type::getInt1Ty(context.llvmContext), 0, true));
-    // }
-    // else if (ISTYPE(condValue, Type::DoubleTyID))
-    // {
-    //     return context.builder.CreateFCmpONE(condValue, ConstantFP::get(context.llvmContext, APFloat(0.0)));
-    // }
-    // else
-    // {
-    //     return condValue;
-    // }
-    return NULL;
-}
-
 void CodeGenContext::generateCode(NBlock &root)
 {
     cout << "Generating IR code" << endl;
@@ -59,8 +41,14 @@ void CodeGenContext::generateCode(NBlock &root)
     cout << "Code generate success" << endl;
 
     legacy::PassManager passManager;
+
+    std::error_code error;
+    llvm::raw_fd_ostream file("out.bc", error, llvm::sys::fs::F_None);
+    passManager.add(createPrintModulePass(file));
     passManager.add(createPrintModulePass(outs()));
+
     passManager.run(*module);
+    
     return;
 }
 
@@ -382,7 +370,7 @@ llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
     {
         argsv.push_back((*it)->codeGen(context));
         if (!argsv.back())
-        { // if any argument codegen fail
+        {
             return nullptr;
         }
     }
@@ -395,7 +383,7 @@ llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
 
 llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
 {
-    cout << "Generating variable declaration of " << this->type.name << " " << this->id.name << endl;
+    cout << "Generating var declaration " << this->type.name << " " << this->id.name << endl;
     Type *type = typeOf(&this->type, &context.llvmContext);
     Value *initial = nullptr;
 
@@ -416,66 +404,83 @@ llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
     return inst;
 }
 
+static Value *CastToBoolean(CodeGenContext &context, Value *condValue)
+{
+
+    if (ISTYPE(condValue, Type::IntegerTyID))
+    {
+        condValue = context.builder.CreateIntCast(condValue, Type::getInt1Ty(context.llvmContext), true);
+        return context.builder.CreateICmpNE(condValue, ConstantInt::get(Type::getInt1Ty(context.llvmContext), 0, true));
+    }
+    else if (ISTYPE(condValue, Type::DoubleTyID))
+    {
+        return context.builder.CreateFCmpONE(condValue, ConstantFP::get(context.llvmContext, APFloat(0.0)));
+    }
+    else
+    {
+        return condValue;
+    }
+}
+
 llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
 {
-    // cout << "Generating if statement" << endl;
-    // Value *condValue = this->condition.codeGen(context);
-    // if (!condValue)
-    //     return nullptr;
+    cout << "Generating if" << endl;
+    Value *condValue = this->condition.codeGen(context);
+    if (!condValue)
+        return nullptr;
 
-    // condValue = CastToBoolean(context, condValue);
+    condValue = CastToBoolean(context, condValue);
 
-    // Function *theFunction = context.builder.GetInsertBlock()->getParent(); // the function where if statement is in
+    Function *theFunction = context.builder.GetInsertBlock()->getParent();
 
-    // BasicBlock *thenBB = BasicBlock::Create(context.llvmContext, "then", theFunction);
-    // BasicBlock *falseBB = BasicBlock::Create(context.llvmContext, "else");
-    // BasicBlock *mergeBB = BasicBlock::Create(context.llvmContext, "ifcont");
+    BasicBlock *thenBB = BasicBlock::Create(context.llvmContext, "then", theFunction);
+    BasicBlock *falseBB = BasicBlock::Create(context.llvmContext, "else");
+    BasicBlock *mergeBB = BasicBlock::Create(context.llvmContext, "ifcont");
 
-    // if (this->falseBlock)
-    // {
-    //     context.builder.CreateCondBr(condValue, thenBB, falseBB);
-    // }
-    // else
-    // {
-    //     context.builder.CreateCondBr(condValue, thenBB, mergeBB);
-    // }
+    if (this->falseBlock)
+    {
+        context.builder.CreateCondBr(condValue, thenBB, falseBB);
+    }
+    else
+    {
+        context.builder.CreateCondBr(condValue, thenBB, mergeBB);
+    }
 
-    // context.builder.SetInsertPoint(thenBB);
+    context.builder.SetInsertPoint(thenBB);
 
-    // context.pushBlock(thenBB);
+    context.pushBlock(thenBB);
 
-    // this->trueBlock.codeGen(context);
+    this->trueBlock.codeGen(context);
 
-    // context.popBlock();
+    context.popBlock();
 
-    // thenBB = context.builder.GetInsertBlock();
+    thenBB = context.builder.GetInsertBlock();
 
-    // if (thenBB->getTerminator() == nullptr)
-    // { //
-    //     context.builder.CreateBr(mergeBB);
-    // }
+    if (thenBB->getTerminator() == nullptr)
+    {
+        context.builder.CreateBr(mergeBB);
+    }
 
-    // if (this->falseBlock)
-    // {
-    //     theFunction->getBasicBlockList().push_back(falseBB); //
-    //     context.builder.SetInsertPoint(falseBB);             //
+    if (this->falseBlock)
+    {
+        theFunction->getBasicBlockList().push_back(falseBB);
+        context.builder.SetInsertPoint(falseBB);
 
-    //     context.pushBlock(thenBB);
+        context.pushBlock(thenBB);
 
-    //     this->falseBlock->codeGen(context);
+        this->falseBlock->codeGen(context);
 
-    //     context.popBlock();
+        context.popBlock();
 
-    //     context.builder.CreateBr(mergeBB);
-    // }
+        context.builder.CreateBr(mergeBB);
+    }
 
-    // theFunction->getBasicBlockList().push_back(mergeBB); //
-    // context.builder.SetInsertPoint(mergeBB);             //
+    theFunction->getBasicBlockList().push_back(mergeBB);
+    context.builder.SetInsertPoint(mergeBB);
 
-    // context.lastBlock = mergeBB;
+    context.lastBlock = mergeBB;
 
-    return NULL;
-    // return nullptr;
+    return nullptr;
 }
 
 llvm::Value *NForStatement::codeGen(CodeGenContext &context)
@@ -552,11 +557,6 @@ llvm::Value *NForStatement::codeGen(CodeGenContext &context)
 
     return NULL;
 }
-
-// /*
-//  * Global Functions
-//  *
-//  */
 
 std::unique_ptr<NExpression> LogError(const char *str)
 {
