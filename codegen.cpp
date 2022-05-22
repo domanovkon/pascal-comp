@@ -55,7 +55,8 @@ void CodeGenContext::generateCode(NBlock &root)
 llvm::Value *NAssignment::codeGen(CodeGenContext &context)
 {
     cout << "Generating assignment of " << lhs.name << " = " << endl;
-
+    
+    // Проверка на return
     if (lhs.name.compare(context.currentFunctionName()) == 0)
     {
         cout << "Generating return statement" << endl;
@@ -103,7 +104,6 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
     Value *R = this->rhs.codeGen(context);
     bool fp = false;
 
-
     // Приведение типов
     if ((L->getType()->getTypeID() == Type::DoubleTyID) || (R->getType()->getTypeID() == Type::DoubleTyID))
     {
@@ -120,7 +120,7 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
 
     if (!L || !R)
     {
-        cout << "null Expr" << endl;
+        cout << "null expr" << endl;
         return nullptr;
     }
     cout << "fp = " << (fp ? "true" : "false") << endl;
@@ -177,7 +177,7 @@ llvm::Value *NInteger::codeGen(CodeGenContext &context)
 
 llvm::Value *NReal::codeGen(CodeGenContext &context)
 {
-    cout << "Generating Double: " << this->value << endl;
+    cout << "Generating Real: " << this->value << endl;
     return ConstantFP::get(Type::getDoubleTy(context.llvmContext), this->value);
 }
 
@@ -410,6 +410,7 @@ static Value *CastToBoolean(CodeGenContext &context, Value *condValue)
     if (ISTYPE(condValue, Type::IntegerTyID))
     {
         condValue = context.builder.CreateIntCast(condValue, Type::getInt1Ty(context.llvmContext), true);
+        // Инструкция сравнения
         return context.builder.CreateICmpNE(condValue, ConstantInt::get(Type::getInt1Ty(context.llvmContext), 0, true));
     }
     else if (ISTYPE(condValue, Type::DoubleTyID))
@@ -422,6 +423,86 @@ static Value *CastToBoolean(CodeGenContext &context, Value *condValue)
     }
 }
 
+llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
+{
+    cout << "Generating loop " << endl;
+
+    // Получим текущую функци.
+    Function *theFunction = context.builder.GetInsertBlock()->getParent();
+
+    // Вставим новый блок в конце указанной функции
+    BasicBlock *block = BasicBlock::Create(context.llvmContext, "forloop", theFunction);
+    BasicBlock *after = BasicBlock::Create(context.llvmContext, "forcont");
+
+    // Генерируем локальную переменную для for
+    if (this->initial) {
+        Value *dst = context.getSymbol(this->initial->name)->getValue();
+        cout << "Generating Integer: " << this->fromA->value << endl;
+        Value *exp = ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->fromA->value, true);
+        context.builder.CreateStore(exp, dst);
+    }
+
+    Value *condValue = nullptr;
+    if (this->initial == nullptr) {
+        // Генерируем условие для while
+        condValue = this->condition->codeGen(context);
+    } else {
+        // Генерируем условие для for
+        // Генерация инструкции сравнения, инструкция icmp »возвращает логическое значение или логический вектор на основе сравнения двух операндов целочисленного, целочисленного вектора, указателя или вектора указателя.
+        // ult означает меньше чем
+        // Эквивалент генерации такой инструкции% cmptmp = icmp ult i32% x,% addtmp
+        condValue = context.builder.CreateICmpULT(
+            new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
+            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), "cmptmp");
+    }
+
+    if (!condValue)
+        return nullptr;
+
+    condValue = CastToBoolean(context, condValue);
+
+    // Создать инструкцию перехода
+    context.builder.CreateCondBr(condValue, block, after);
+
+    // Устанавливаем точку вставки, и все последующие вставки находятся в этом блоке
+    context.builder.SetInsertPoint(block);
+
+    context.pushBlock(block);
+
+    this->block->codeGen(context);
+
+    context.popBlock();
+
+    if (this->initial) {
+        // Инкремент
+        Value *dst = context.getSymbol(this->initial->name)->getValue();
+        Value *exp = context.builder.CreateAdd(
+            new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()),
+            ConstantInt::get(Type::getInt64Ty(context.llvmContext), 1, true),"addftmp");
+        context.builder.CreateStore(exp, dst);
+    }
+
+    if (this->initial == nullptr) {
+        condValue = this->condition->codeGen(context);
+    } else {
+        condValue = context.builder.CreateICmpULT(
+            new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
+            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), 
+            "cmptmp"
+            );
+    }
+    condValue = CastToBoolean(context, condValue);
+    context.builder.CreateCondBr(condValue, block, after);
+
+    // Вставляем следующий блок
+    theFunction->getBasicBlockList().push_back(after);
+    context.builder.SetInsertPoint(after);
+
+    context.lastBlock = after;
+
+    return nullptr;
+}
+
 llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
 {
     cout << "Generating if" << endl;
@@ -430,15 +511,23 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
         return nullptr;
 
     condValue = CastToBoolean(context, condValue);
-
     Function *theFunction = context.builder.GetInsertBlock()->getParent();
-
+    /*
+           Получив это, он создает три блока. Обратите внимание, что он передает «TheFunction» в конструктор блока «then». 
+           Это заставляет конструктор автоматически вставлять новый блок в конце указанной функции. 
+           Два других блока были созданы, но они не были вставлены в функцию.
+     */
+    // Создать блок кода для потом
     BasicBlock *thenBB = BasicBlock::Create(context.llvmContext, "then", theFunction);
+    // Создать блок кода else
     BasicBlock *falseBB = BasicBlock::Create(context.llvmContext, "else");
+    // продолжение
     BasicBlock *mergeBB = BasicBlock::Create(context.llvmContext, "ifcont");
 
     if (this->falseBlock)
     {
+        // Создать условную инструкцию "br Cond, TrueDest, falseDest".
+        //br i1 %ifcond, label %then, label %else
         context.builder.CreateCondBr(condValue, thenBB, falseBB);
     }
     else
@@ -446,116 +535,40 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
         context.builder.CreateCondBr(condValue, thenBB, mergeBB);
     }
 
+     /**
+           Вставив условную ветвь, мы переместим конструктор в блок «then». 
+           Строго говоря, этот вызов перемещает точку вставки в конец указанного блока. 
+           Однако, поскольку блок "then" пуст, он также начинается со вставки в начале блока, 
+           который фактически должен установить точку вставки.
+     */
     context.builder.SetInsertPoint(thenBB);
-
     context.pushBlock(thenBB);
-
     this->trueBlock.codeGen(context);
-
     context.popBlock();
-
     thenBB = context.builder.GetInsertBlock();
-
     if (thenBB->getTerminator() == nullptr)
     {
+        // Чтобы завершить блок «then», мы создаем безусловную ветвь для блока слияния и 
+        // создаем безусловную ветвь для блока слияния
+        // это инструкция br label% ifcont
         context.builder.CreateBr(mergeBB);
     }
-
+    // Если блок else существует, то повторяем для него действия блока then
     if (this->falseBlock)
     {
         theFunction->getBasicBlockList().push_back(falseBB);
         context.builder.SetInsertPoint(falseBB);
-
         context.pushBlock(thenBB);
-
         this->falseBlock->codeGen(context);
-
         context.popBlock();
-
         context.builder.CreateBr(mergeBB);
     }
 
+    // Вставляем блок MergeBB:
     theFunction->getBasicBlockList().push_back(mergeBB);
     context.builder.SetInsertPoint(mergeBB);
-
     context.lastBlock = mergeBB;
-
     return nullptr;
-}
-
-llvm::Value *NForStatement::codeGen(CodeGenContext &context)
-{
-
-//     Function *theFunction = context.builder.GetInsertBlock()->getParent();
-
-//     BasicBlock *block = BasicBlock::Create(context.llvmContext, "forloop", theFunction);
-//     BasicBlock *after = BasicBlock::Create(context.llvmContext, "forcont");
-
-//   // execute the initial
-//     if( this->initial ){
-//         Value *dst = context.getSymbol(this->initial->name)->getValue();
-//         cout << "Generating Integer: " << this->fromA->value << endl;
-//         Value *exp = ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->fromA->value, true);
-//         context.builder.CreateStore(exp, dst);
-//         // this->initial->codeGen(context);
-//     }
-
-//     Value *condValue = nullptr;
-//     if(this->initial == nullptr){
-//         condValue = this->condition->codeGen(context);
-//     }else{
-//         condValue = context.builder.CreateICmpULT(
-//             new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
-//             ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), 
-//             "cmptmp"
-//             );
-//     }
-
-//     if (!condValue)
-//         return nullptr;
-
-//     condValue = CastToBoolean(context, condValue);
-
-//     // fall to the block
-//     context.builder.CreateCondBr(condValue, block, after);
-
-//     context.builder.SetInsertPoint(block);
-
-//     context.pushBlock(block);
-
-//     this->block->codeGen(context);
-
-//     context.popBlock();
-
-
-    // if( this->initial ){
-    //     Value *dst = context.getSymbol(this->initial->name)->getValue();
-    //     Value *exp = context.builder.CreateAdd(
-    //         new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()),
-    //         ConstantInt::get(Type::getInt64Ty(context.llvmContext), 1, true),
-    //         "addftmp");
-    //     context.builder.CreateStore(exp, dst);
-    // }
-
-    // if(this->initial == nullptr){
-    //     condValue = this->condition->codeGen(context);
-    // }else{
-    //     condValue = context.builder.CreateICmpULT(
-    //         new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
-    //         ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), 
-    //         "cmptmp"
-    //         );
-    // }
-
-    // condValue = CastToBoolean(context, condValue);
-    // context.builder.CreateCondBr(condValue, block, after);
-
-    // theFunction->getBasicBlockList().push_back(after);
-    // context.builder.SetInsertPoint(after);
-
-    // context.lastBlock = after;
-
-    return NULL;
 }
 
 std::unique_ptr<NExpression> LogError(const char *str)

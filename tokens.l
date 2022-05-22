@@ -9,7 +9,6 @@ extern "C" int yywrap() { return 1; }
 
 %%
 
-
 [ \t\n]                 ;
 
 
@@ -65,6 +64,6 @@ extern "C" int yywrap() { return 1; }
 
 
 [a-zA-Z_][a-zA-Z0-9_]* SAVE_TOKEN; return T_IDENTIFIER;
-\"[a-zA-Z0-9_]*\" SAVE_TOKEN; return T_STRING;
+\"[a-zA-Z0-9_,]*\" SAVE_TOKEN; return T_STRING;
 
 %%

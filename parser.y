@@ -50,7 +50,7 @@
 /* Нетерминалы */
 %type <block> program functions statement-sequence function-body compound-statement
 %type <ident> identifier type-identifier var-identifier function-identifier
-%type <stmt> statement function-declaration assignment-statement loop-statement while_stmt for_stmt if_stmt simple-statement function-statement
+%type <stmt> statement function-declaration assignment-statement repetitive-statement while_stmt for_stmt if_stmt simple-statement function-statement
 %type <funchead> function-heading
 %type <declVarLists> declarations-list
 %type <decl> declarations
@@ -103,8 +103,8 @@ function-declaration : function-heading function-body { $$ = new NFunctionDeclar
 
 
 function-heading : { $$ = new NFunctionHeaderDeclaration(); std::cout << "function-heading\n "; }
-                |   T_FUNCTION identifier T_OPAREN formal-parameter-list T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$7, *$4); std::cout << "function-heading+identifier+params\n "; }
-                |   T_FUNCTION identifier T_OPAREN T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$6); std::cout << "function-heading+identifier+params\n "; }
+                |   T_FUNCTION identifier T_OPAREN formal-parameter-list T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$7, *$4); std::cout << "function-heading+identifier+args+type\n "; }
+                |   T_FUNCTION identifier T_OPAREN T_CPAREN T_COLON type-identifier { $$ = new NFunctionHeaderDeclaration(*$2, *$6); std::cout << "function-heading+identifier+type\n "; }
                 ;
 
 
@@ -150,7 +150,7 @@ statement-sequence : statement {$$ = new NBlock(); $$->statements.push_back($1);
 
 
 statement : simple-statement { $$ = $1; std::cout << "simple-statement\n ";}
-                | loop-statement {$$ = $1; std::cout << "loop-statement\n ";}
+                | repetitive-statement {$$ = $1; std::cout << "repetitive-statement\n ";}
                 | if_stmt {$$=$1; std::cout << "if_stmt\n ";}
                 ;
 
@@ -168,16 +168,16 @@ assignment-statement : var-identifier T_ASSIGNMENT expression { $$ = new NAssign
                 ;
 
 
-loop-statement : while_stmt {$$ = $1;}
+repetitive-statement : while_stmt {$$ = $1;}
                 | for_stmt {$$ = $1;}
                 ;
 
 
-while_stmt : T_WHILE expression T_DO T_BEGIN statement-sequence T_END { $$ = new NForStatement($5, nullptr, $2); }
+while_stmt : T_WHILE expression T_DO T_BEGIN statement-sequence T_END T_SEMICOLON { $$ = new NLoopStatement($5, nullptr, $2); }
                 ;
 
 
-for_stmt :  T_FOR identifier T_ASSIGNMENT number T_TO number T_DO T_BEGIN statement-sequence T_END { $$ = new NForStatement($9, $2, nullptr, $<integ>4, $<integ>6); }
+for_stmt :  T_FOR identifier T_ASSIGNMENT number T_TO number T_DO T_BEGIN statement-sequence T_END T_SEMICOLON { $$ = new NLoopStatement($9, $2, nullptr, $<integ>4, $<integ>6); }
                 ;
 
 
@@ -205,7 +205,6 @@ factor : number { $$ = $1; std::cout << "numfactor \n";}
                 | var-identifier { $$ = $1; std::cout << "varFactorIdentifer \n";}
                 | varfunc-designator { $$ = $1; std::cout << "varfactor \n";}
                 | T_OPAREN expression T_CPAREN { $$ = $2; std::cout << "expfactor \n";}
-                // | TNOT factor {}
                 | T_STRING { $$ = new NConstantString(*$1); std::cout << "strfactor \n";}
                 ;
 

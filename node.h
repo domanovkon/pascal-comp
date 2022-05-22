@@ -29,7 +29,9 @@ class Node
 public:
     virtual ~Node() {}
     virtual std::string getTypeName() const = 0;
-    virtual llvm::Value *codeGen(CodeGenContext &context) {}
+    virtual llvm::Value *codeGen(CodeGenContext &context) {
+        return nullptr;
+    }
 };
 
 
@@ -128,12 +130,6 @@ public:
     VariableList arguments;
 
     NFunctionHeaderDeclaration() {}
-    NFunctionHeaderDeclaration(NIdentifier id) : id(id)
-    {
-    }
-    NFunctionHeaderDeclaration(NIdentifier id, VariableList arguments) : id(id), arguments(arguments)
-    {
-    }
     NFunctionHeaderDeclaration(NIdentifier id, NIdentifier type) : id(id), type(type)
     {
     }
@@ -152,7 +148,7 @@ public:
 
     void print()
     {
-        std::cout << "Function with Id = '" << header.id.name << "' have "
+        std::cout << "Function = '" << header.id.name << "' have "
                   << "Statements " << body.statements.size() << std::endl;
     }
 
@@ -204,7 +200,7 @@ class NReal : public NExpression
 public:
     double value;
     NReal(double value) : value(value) {
-        std::cout << "real value: " << value << "\n";
+        std::cout << "Real value: " << value << "\n";
     }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
@@ -227,7 +223,7 @@ public:
 };
 
 
-class NForStatement : public NStatement
+class NLoopStatement : public NStatement
 {
 public:
     NIdentifier *initial;
@@ -235,22 +231,19 @@ public:
     NInteger *fromA, *toB;
     NBlock *block;
 
-    NForStatement() {}
-
-    NForStatement(NBlock *b, NIdentifier *initIdent = nullptr, NExpression *cond = nullptr, NInteger *fromA = nullptr, NInteger *toB = nullptr)
-        : block(b), initial(initIdent), condition(cond), fromA(fromA), toB(toB) 
+    NLoopStatement() {}
+    NLoopStatement(NBlock *b, NIdentifier *initIdent = nullptr, NExpression *cond = nullptr, NInteger *fromA = nullptr, NInteger *toB = nullptr): block(b), initial(initIdent), condition(cond), fromA(fromA), toB(toB) 
     {
         if (condition == nullptr)
         {
             condition = new NInteger(1);
         }
     }
-
     llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
     {
-        return "NForStatement";
+        return "NLoopStatement";
     }
 };
 
