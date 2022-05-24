@@ -1,7 +1,7 @@
 #include <iostream>
 #include "codegen.h"
 #include "node.h"
-extern NBlock* programBlock;
+extern BlockNode* programBlock;
 extern int yyparse();
 
 int main(int argc, char **argv)

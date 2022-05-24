@@ -23,6 +23,8 @@ extern "C" int yywrap() { return 1; }
 
 "("                     return TOKEN(T_OPAREN);
 ")"                     return TOKEN(T_CPAREN);
+"["                     return TOKEN(T_OSQPAREN);
+"]"                     return TOKEN(T_CSQPAREN);
 "."                     return TOKEN(T_DOT);
 ","                     return TOKEN(T_COMMA);
 ";"                     return TOKEN(T_SEMICOLON);
@@ -48,6 +50,10 @@ extern "C" int yywrap() { return 1; }
 
 "integer"		        return TOKEN(T_INTEGER);
 "real"			        return TOKEN(T_REAL);
+
+
+"array"                 return TOKEN(T_ARRAY);
+"of"                    return TOKEN(T_OF);
 
 
 "write"                 {yylval.string=new std::string("write"); return T_IDENTIFIER;}

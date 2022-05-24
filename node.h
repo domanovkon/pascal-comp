@@ -7,21 +7,22 @@
 #include <llvm/IR/Value.h>
 
 class CodeGenContext;
-class NStatement;
-class NExpression;
-class NIdentifier;
-class NVariableDeclaration;
+class StatementNode;
+class ExpressionNode;
+class IdentifierNode;
+// class ArrayIdentifierNode;
+class VarDeclarationNode;
 class NVariableDefinition;
-class NFunctionDeclaration;
-class NDeclarations;
+class FunctionNode;
+class DeclarationsNode;
 
 typedef int Number;
-typedef std::vector<NStatement *> StatementList;
-typedef std::vector<NExpression *> ExpressionList;
-typedef std::vector<NIdentifier *> IdentifierList;
-typedef std::vector<NVariableDeclaration *> VariableList;
-typedef std::vector<std::vector<NVariableDeclaration *> *> LocalVariableList;
-typedef std::vector<NDeclarations *> DeclarationsList;
+typedef std::vector<StatementNode *> StatementList;
+typedef std::vector<ExpressionNode *> ExpressionList;
+typedef std::vector<IdentifierNode *> IdentifierList;
+typedef std::vector<VarDeclarationNode *> VariableList;
+typedef std::vector<std::vector<VarDeclarationNode *> *> LocalVariableList;
+typedef std::vector<DeclarationsNode *> DeclarationsList;
 
 
 class Node
@@ -35,19 +36,19 @@ public:
 };
 
 
-class NExpression : public Node
+class ExpressionNode : public Node
 {
 public:
-    NExpression() {}
+    ExpressionNode() {}
 
     std::string getTypeName() const override
     {
-        return "NExpression";
+        return "ExpressionNode";
     }
 };
 
 
-class NStatement : public Node
+class StatementNode : public Node
 {
 public:
     virtual void print()
@@ -56,33 +57,60 @@ public:
     }
     std::string getTypeName() const override
     {
-        return "NStatement";
+        return "StatementNode";
     }
 };
 
-
-class NIdentifier : public NExpression
+class IntegerNode : public ExpressionNode
 {
 public:
-    std::string name;
-    NIdentifier() {}
-    NIdentifier(std::string name) : name(name) {}
+    int value;
+    IntegerNode(int value) : value(value) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NIdentifier";
+        return "IntegerNode";
     }
 };
 
 
-class NVariableDeclaration : public NStatement
+class IdentifierNode : public ExpressionNode
 {
 public:
-    const NIdentifier &type;
-    NIdentifier &id;
-    NExpression *assignmentExpr;
-    NVariableDeclaration(const NIdentifier &type, NIdentifier &id) : type(type), id(id) {}
-    NVariableDeclaration(const NIdentifier &type, NIdentifier &id, NExpression *assignmentExpr) : type(type), id(id), assignmentExpr(assignmentExpr) {}
+    std::string name;
+    IdentifierNode() {}
+    IdentifierNode(std::string name) : name(name) {}
+    virtual llvm::Value *codeGen(CodeGenContext &context);
+    std::string getTypeName() const override
+    {
+        return "IdentifierNode";
+    }
+};
+
+// class ArrayIdentifierNode : public ExpressionNode
+// {
+// public:
+//     std::string name;
+//     IntegerNode *count;
+
+//     ArrayIdentifierNode() {}
+//     ArrayIdentifierNode(std::string name, IntegerNode *count) : name(name), count(count) {}
+//     virtual llvm::Value *codeGen(CodeGenContext &context);
+//     std::string getTypeName() const override
+//     {
+//         return "ArrayIdentifierNode";
+//     }
+// };
+
+
+class VarDeclarationNode : public StatementNode
+{
+public:
+    const IdentifierNode &type;
+    IdentifierNode &id;
+    ExpressionNode *assignmentExpression;
+    VarDeclarationNode(const IdentifierNode &type, IdentifierNode &id) : type(type), id(id) {}
+    VarDeclarationNode(const IdentifierNode &type, IdentifierNode &id, ExpressionNode *assignmentExpression) : type(type), id(id), assignmentExpression(assignmentExpression) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
 
     void print()
@@ -91,60 +119,57 @@ public:
     }
 };
 
-
-class NDeclarations : public NStatement
+class DeclarationsNode : public StatementNode
 {
 public:
-    std::vector<NIdentifier*> &identList;
-    NIdentifier &type;
+    std::vector<IdentifierNode*> &identList;
+    IdentifierNode &type;
+    IntegerNode *count;
 
-    NDeclarations(std::vector<NIdentifier*> &identList, NIdentifier &type) : identList(identList), type(type) {}
+    // DeclarationsNode(std::vector<IdentifierNode*> &identList, IdentifierNode &type) : identList(identList), type(type) {}
+    DeclarationsNode(std::vector<IdentifierNode*> &identList, IdentifierNode &type, IntegerNode *count = nullptr) : identList(identList), type(type), count(count) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NDeclarations";
+        return "DeclarationsNode";
     }
 };
 
 
-class NBlock : public NStatement
+class BlockNode : public StatementNode
 {
 public:
     StatementList statements;
     LocalVariableList localVars;
-    std::vector<NDeclarations*> declVarLists;
-    NBlock() {}
+    std::vector<DeclarationsNode*> declVarLists;
+    BlockNode() {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NBlock";
+        return "BlockNode";
     }
 };
 
 
-class NFunctionHeaderDeclaration : public NStatement
+class FunctionHeaderNode : public StatementNode
 {
 public:
-    NIdentifier type;
-    NIdentifier id;
+    IdentifierNode type;
+    IdentifierNode id;
     VariableList arguments;
 
-    NFunctionHeaderDeclaration() {}
-    NFunctionHeaderDeclaration(NIdentifier id, NIdentifier type) : id(id), type(type)
-    {
-    }
-    NFunctionHeaderDeclaration(NIdentifier id, NIdentifier type, VariableList arguments) : id(id), type(type), arguments(arguments)
-    {
-    }
+    FunctionHeaderNode() {}
+    FunctionHeaderNode(IdentifierNode id, IdentifierNode type) : id(id), type(type){}
+    FunctionHeaderNode(IdentifierNode id, IdentifierNode type, VariableList arguments) : id(id), type(type), arguments(arguments){}
 };
 
 
-class NFunctionDeclaration : public NStatement
+class FunctionNode : public StatementNode
 {
 public:
-    NFunctionHeaderDeclaration &header;
-    NBlock &body;
-    std::vector<NDeclarations*> *decllist;
+    FunctionHeaderNode &header;
+    BlockNode &body;
+    std::vector<DeclarationsNode*> *decllist;
 
     void print()
     {
@@ -152,11 +177,11 @@ public:
                   << "Statements " << body.statements.size() << std::endl;
     }
 
-    NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body) : header(header), body(body)
+    FunctionNode(FunctionHeaderNode &header, BlockNode &body) : header(header), body(body)
     {
     }
 
-    NFunctionDeclaration(NFunctionHeaderDeclaration &header, NBlock &body, std::vector<NDeclarations*> *decllist) : header(header), body(body), decllist(decllist)
+    FunctionNode(FunctionHeaderNode &header, BlockNode &body, std::vector<DeclarationsNode*> *decllist) : header(header), body(body), decllist(decllist)
     {
     }
 
@@ -164,140 +189,139 @@ public:
 };
 
 
-class NBinaryOperator : public NExpression
+class BinaryOpNode : public ExpressionNode
 {
 public:
     int op;
-    NExpression &lhs;
-    NExpression &rhs;
-    NBinaryOperator(NExpression &lhs, int op, NExpression &rhs) : lhs(lhs), rhs(rhs), op(op)
+    ExpressionNode &left;
+    ExpressionNode &right;
+    BinaryOpNode(ExpressionNode &left, int op, ExpressionNode &right) : left(left), right(right), op(op)
     {
-        std::cout << "Binary Operator";
+        std::cout << "Binary Op Node";
     }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NBinaryOperator";
+        return "BinaryOpNode";
     }
 };
 
 
-class NInteger : public NExpression
-{
-public:
-    int value;
-    NInteger(int value) : value(value) {}
-    virtual llvm::Value *codeGen(CodeGenContext &context);
-    std::string getTypeName() const override
-    {
-        return "NInteger";
-    }
-};
-
-
-class NReal : public NExpression
+class RealNode : public ExpressionNode
 {
 public:
     double value;
-    NReal(double value) : value(value) {
+    RealNode(double value) : value(value) {
         std::cout << "Real value: " << value << "\n";
     }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NReal";
+        return "RealNode";
     }
 };
 
 
-class NConstantString : public NExpression
+class StringNode : public ExpressionNode
 {
 public:
     std::string value;
-    NConstantString(std::string value) : value(value) {}
+    StringNode(std::string value) : value(value) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NConstantString";
+        return "StringNode";
     }
 };
 
 
-class NLoopStatement : public NStatement
+class LoopStatementNode : public StatementNode
 {
 public:
-    NIdentifier *initial;
-    NExpression *condition;
-    NInteger *fromA, *toB;
-    NBlock *block;
+    IdentifierNode *initial;
+    ExpressionNode *condition;
+    IntegerNode *fromNumber, *toNumber;
+    BlockNode *block;
 
-    NLoopStatement() {}
-    NLoopStatement(NBlock *b, NIdentifier *initIdent = nullptr, NExpression *cond = nullptr, NInteger *fromA = nullptr, NInteger *toB = nullptr): block(b), initial(initIdent), condition(cond), fromA(fromA), toB(toB) 
+    LoopStatementNode() {}
+    LoopStatementNode(BlockNode *b, IdentifierNode *initIdent = nullptr, ExpressionNode *cond = nullptr, IntegerNode *fromNumber = nullptr, IntegerNode *toNumber = nullptr): block(b), initial(initIdent), condition(cond), fromNumber(fromNumber), toNumber(toNumber) 
     {
         if (condition == nullptr)
         {
-            condition = new NInteger(1);
+            condition = new IntegerNode(1);
         }
     }
     llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
     {
-        return "NLoopStatement";
+        return "LoopStatementNode";
     }
 };
 
 
-class NIfStatement : public NStatement
+class IfStatementNode : public StatementNode
 {
 public:
-    NExpression &condition;
-    NBlock &trueBlock; // не может быть пустым
-    NBlock *falseBlock; // может быть пустым
+    ExpressionNode &condition;
+    BlockNode &trueBlock; // не может быть пустым
+    BlockNode *falseBlock; // может быть пустым
 
-    NIfStatement(NExpression &cond, NBlock &blk, NBlock *blk2 = nullptr)
+    IfStatementNode(ExpressionNode &cond, BlockNode &blk, BlockNode *blk2 = nullptr)
         : condition(cond), trueBlock(blk), falseBlock(blk2)
-    {
-    }
+    {}
 
     llvm::Value *codeGen(CodeGenContext &context) override;
 
     std::string getTypeName() const override
     {
-        return "NIfStatement";
+        return "IfStatementNode";
     }
 };
 
 
-class NAssignment : public NStatement
+class AssignmentNode : public StatementNode
 {
 public:
-    NIdentifier &lhs;
-    NExpression &rhs;
-    NAssignment(NIdentifier &lhs, NExpression &rhs) : lhs(lhs), rhs(rhs)
-    {
-        std::cout << ":)";
-    }
+    IdentifierNode &left;
+    ExpressionNode &right;
+    ExpressionNode *indx;
+    // IntegerNode *count;
+    AssignmentNode(IdentifierNode &left, ExpressionNode &right, ExpressionNode *indx = nullptr) : left(left), right(right), indx(indx) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
 
     std::string getTypeName() const override
     {
-        return "NAssignment";
+        return "AssignmentNode";
     }
 };
 
 
-class NMethodCall : public NStatement, public NExpression
+class MethodCallNode : public StatementNode, public ExpressionNode
 {
 public:
-    const NIdentifier &id;
+    const IdentifierNode &id;
     ExpressionList arguments;
-    NMethodCall(const NIdentifier &id, ExpressionList &arguments) : id(id), arguments(arguments) {}
-    NMethodCall(const NIdentifier &id) : id(id) {}
+    MethodCallNode(const IdentifierNode &id, ExpressionList &arguments) : id(id), arguments(arguments) {}
+    MethodCallNode(const IdentifierNode &id) : id(id) {}
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {
-        return "NMethodCall";
+        return "MethodCallNode";
+    }
+};
+
+class ArrayIndexNode : public StatementNode, public ExpressionNode
+{
+public:
+    const IdentifierNode &id;
+    IntegerNode *index;
+    ExpressionNode *keyIndex;
+    ArrayIndexNode(const IdentifierNode &id, IntegerNode *index = nullptr, ExpressionNode *keyIndex = nullptr) : id(id), index(index), keyIndex(keyIndex) {}
+    virtual llvm::Value *codeGen(CodeGenContext &context);
+    std::string getTypeName() const override
+    {
+        return "ArrayIndexNode";
     }
 };
 

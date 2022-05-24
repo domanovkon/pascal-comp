@@ -12,7 +12,7 @@
 #include "parser.hpp"
 #define ISTYPE(value, id) (value->getType()->getTypeID() == id)
 
-static Type *typeOf(const NIdentifier *type, LLVMContext *ctx)
+static Type *typeOf(const IdentifierNode *type, LLVMContext *ctx)
 {
     if (type->name.compare("integer") == 0)
     {
@@ -22,10 +22,14 @@ static Type *typeOf(const NIdentifier *type, LLVMContext *ctx)
     {
         return Type::getDoubleTy(*ctx);
     }
+    else if (type->name.compare("array") == 0)
+    {
+        return Type::getInt64Ty(*ctx);
+    }
     return Type::getVoidTy(*ctx);
 }
 
-void CodeGenContext::generateCode(NBlock &root)
+void CodeGenContext::generateCode(BlockNode &root)
 {
     cout << "Generating IR code" << endl;
 
@@ -52,15 +56,15 @@ void CodeGenContext::generateCode(NBlock &root)
     return;
 }
 
-llvm::Value *NAssignment::codeGen(CodeGenContext &context)
+llvm::Value *AssignmentNode::codeGen(CodeGenContext &context)
 {
-    cout << "Generating assignment of " << lhs.name << " = " << endl;
+    cout << "Generating assignment of " << left.name << " = " << endl;
     
     // Проверка на return
-    if (lhs.name.compare(context.currentFunctionName()) == 0)
+    if (left.name.compare(context.currentFunctionName()) == 0)
     {
         cout << "Generating return statement" << endl;
-        Value *returnValue = rhs.codeGen(context);
+        Value *returnValue = right.codeGen(context);
         Value *returnValue2 = nullptr;
         if (returnValue->getType()->getTypeID() == llvm::Type::IntegerTyID)
         {
@@ -73,21 +77,51 @@ llvm::Value *NAssignment::codeGen(CodeGenContext &context)
         return returnValue2;
     }
 
-    Value *dst = context.getSymbol(lhs.name)->getValue();
+    Value *dst = context.getSymbol(left.name)->getValue();
     
     if (!dst)
     {
         return LogErrorV("Undeclared variable");
     }
-    Value *exp = rhs.codeGen(context);
+
+    Value *exp = right.codeGen(context);
+
     if (exp != NULL)
     {
-        context.builder.CreateStore(exp, dst);
+        if (indx != nullptr) {
+            Value *indexValue = indx->codeGen(context);
+            // ConstantInt* CI = dyn_cast<ConstantInt>(context.getArrSymbol(this->left.name)->getSize());
+            // ConstantInt* CIIndex = dyn_cast<ConstantInt>(indexValue);
+            // if (CI->getSExtValue() < CIIndex->getSExtValue()) {
+                // std::cerr << "index outside array" << std::endl;
+                // return nullptr;
+            // } else {
+                auto element_ptr = context.builder.CreateGEP(dst, (llvm::Type::getInt64Ty(context.llvmContext), indexValue));
+                context.builder.CreateStore(exp, element_ptr);
+            // }
+        }
+
+
+        // if (count != nullptr) {
+        //     Value *indx = ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->count->value, true);
+        //     ConstantInt* CI = dyn_cast<ConstantInt>(context.getArrSymbol(this->left.name)->getSize());
+        //     if (CI->getSExtValue() < this->count->value) {
+        //         std::cerr << "index outside array" << std::endl;
+        //         return nullptr;
+        //     } else {
+        //     auto element_ptr = context.builder.CreateGEP(dst, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context.llvmContext), count->value));
+        //     context.builder.CreateStore(exp, element_ptr);
+        //     }
+
+        // }
+        else {
+            context.builder.CreateStore(exp, dst);
+        }
     }
     return dst;
 }
 
-llvm::Value *NDeclarations::codeGen(CodeGenContext &context)
+llvm::Value *DeclarationsNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating declaration list: " << endl;
     for (auto it = this->identList.begin(); it != this->identList.end(); it++){
@@ -96,18 +130,18 @@ llvm::Value *NDeclarations::codeGen(CodeGenContext &context)
     return NULL;
 }
 
-llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
+llvm::Value *BinaryOpNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating binary operator" << endl;
 
-    Value *L = this->lhs.codeGen(context);
-    Value *R = this->rhs.codeGen(context);
-    bool fp = false;
+    Value *L = this->left.codeGen(context);
+    Value *R = this->right.codeGen(context);
+    bool floatValue = false;
 
     // Приведение типов
     if ((L->getType()->getTypeID() == Type::DoubleTyID) || (R->getType()->getTypeID() == Type::DoubleTyID))
     {
-        fp = true;
+        floatValue = true;
         if ((R->getType()->getTypeID() != Type::DoubleTyID))
         {
             R = context.builder.CreateUIToFP(R, Type::getDoubleTy(context.llvmContext), "ftmp");
@@ -120,45 +154,44 @@ llvm::Value *NBinaryOperator::codeGen(CodeGenContext &context)
 
     if (!L || !R)
     {
-        cout << "null expr" << endl;
+        cout << "null expression" << endl;
         return nullptr;
     }
-    cout << "fp = " << (fp ? "true" : "false") << endl;
 
     switch (this->op)
     {
     case T_PLUS:
-        return fp ? context.builder.CreateFAdd(L, R, "addftmp") : context.builder.CreateAdd(L, R, "addtmp");
+        return floatValue ? context.builder.CreateFAdd(L, R, "addftmp") : context.builder.CreateAdd(L, R, "addtmp");
     case T_MINUS:
-        return fp ? context.builder.CreateFSub(L, R, "subftmp") : context.builder.CreateSub(L, R, "subtmp");
+        return floatValue ? context.builder.CreateFSub(L, R, "subftmp") : context.builder.CreateSub(L, R, "subtmp");
     case T_MUL:
-        return fp ? context.builder.CreateFMul(L, R, "mulftmp") : context.builder.CreateMul(L, R, "multmp");
+        return floatValue ? context.builder.CreateFMul(L, R, "mulftmp") : context.builder.CreateMul(L, R, "multmp");
     case T_DIV:
-        return fp ? context.builder.CreateFDiv(L, R, "divftmp") : context.builder.CreateSDiv(L, R, "divtmp");
+        return floatValue ? context.builder.CreateFDiv(L, R, "divftmp") : context.builder.CreateSDiv(L, R, "divtmp");
     case T_AND:
-        return fp ? LogErrorV("Real type has no AND operation") : context.builder.CreateAnd(L, R, "andtmp");
+        return floatValue ? LogErrorV("Real type has no AND operation") : context.builder.CreateAnd(L, R, "andtmp");
     case T_OR:
-        return fp ? LogErrorV("Real type has no OR operation") : context.builder.CreateOr(L, R, "ortmp");
+        return floatValue ? LogErrorV("Real type has no OR operation") : context.builder.CreateOr(L, R, "ortmp");
 
     case T_CLT:
-        return fp ? context.builder.CreateFCmpULT(L, R, "cmpftmp") : context.builder.CreateICmpULT(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpULT(L, R, "cmpftmp") : context.builder.CreateICmpULT(L, R, "cmptmp");
     case T_CLE:
-        return fp ? context.builder.CreateFCmpOLE(L, R, "cmpftmp") : context.builder.CreateICmpSLE(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpOLE(L, R, "cmpftmp") : context.builder.CreateICmpSLE(L, R, "cmptmp");
     case T_CGE:
-        return fp ? context.builder.CreateFCmpOGE(L, R, "cmpftmp") : context.builder.CreateICmpSGE(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpOGE(L, R, "cmpftmp") : context.builder.CreateICmpSGE(L, R, "cmptmp");
     case T_CGT:
-        return fp ? context.builder.CreateFCmpOGT(L, R, "cmpftmp") : context.builder.CreateICmpSGT(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpOGT(L, R, "cmpftmp") : context.builder.CreateICmpSGT(L, R, "cmptmp");
     case T_CNE:
-        return fp ? context.builder.CreateFCmpONE(L, R, "cmpftmp") : context.builder.CreateICmpNE(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpONE(L, R, "cmpftmp") : context.builder.CreateICmpNE(L, R, "cmptmp");
     case T_CEQ:
-        return fp ? context.builder.CreateFCmpOEQ(L, R, "cmpftmp") : context.builder.CreateICmpEQ(L, R, "cmptmp");
+        return floatValue ? context.builder.CreateFCmpOEQ(L, R, "cmpftmp") : context.builder.CreateICmpEQ(L, R, "cmptmp");
     default:
         return LogErrorV("Unknown binary operator");
     }
     return NULL;
 }
 
-llvm::Value *NBlock::codeGen(CodeGenContext &context)
+llvm::Value *BlockNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating block" << endl;
     Value *last = nullptr;
@@ -169,29 +202,29 @@ llvm::Value *NBlock::codeGen(CodeGenContext &context)
     return last;
 }
 
-llvm::Value *NInteger::codeGen(CodeGenContext &context)
+llvm::Value *IntegerNode::codeGen(CodeGenContext &context)
 {
-    cout << "Generating Integer: " << this->value << endl;
+    cout << "Generating integer: " << this->value << endl;
     return ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->value, true);
 }
 
-llvm::Value *NReal::codeGen(CodeGenContext &context)
+llvm::Value *RealNode::codeGen(CodeGenContext &context)
 {
-    cout << "Generating Real: " << this->value << endl;
+    cout << "Generating real: " << this->value << endl;
     return ConstantFP::get(Type::getDoubleTy(context.llvmContext), this->value);
 }
 
-Value *NConstantString::codeGen(CodeGenContext &context)
+Value *StringNode::codeGen(CodeGenContext &context)
 {
-    std::cout << "Creating constant string: " << value << std::endl;
+    std::cout << "Generating string: " << value << std::endl;
     value = value.substr(1, value.size() - 2);
     Value *strVal = context.builder.CreateGlobalStringPtr(value);
     return strVal;
 }
 
-llvm::Value *NIdentifier::codeGen(CodeGenContext &context)
+llvm::Value *IdentifierNode::codeGen(CodeGenContext &context)
 {
-    std::cout << "Creating identifier reference: " << name << std::endl;
+    std::cout << "Generating identifier reference: " << name << std::endl;
 
     for (auto it = context.getBlocks()->begin(); it != context.getBlocks()->end(); it++)
     {
@@ -212,7 +245,7 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context)
                 std::vector<Value *> argsv;
                 // context.builder.CreateCall(function, argsv, "calltmp");
                 CallInst *call = CallInst::Create(function, argsv, "", context.currentBlock());
-                std::cout << "Creating method call: " << name << std::endl;
+                std::cout << "Generating method call: " << name << std::endl;
                 return call;
             }
         }
@@ -225,7 +258,7 @@ llvm::Value *NIdentifier::codeGen(CodeGenContext &context)
 }
 
 
-Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
+Value *FunctionNode::codeGen(CodeGenContext &context)
 {
     vector<Type *> argTypes;
     VariableList::const_iterator it;
@@ -263,6 +296,10 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
     {
         t = Type::DoubleTyID;
     }
+    else if (header.type.name.compare("array") == 0)
+    {
+        t = Type::IntegerTyID;
+    }
 
     context.getFunctions()[header.id.name.c_str()] = new Symbol(t, bblock);
 
@@ -273,26 +310,45 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
     for (auto &ir_arg_it : function->args())
     {
         ir_arg_it.setName((*origin_arg)->id.name);
-        Value *argAlloc;
-        argAlloc = (*origin_arg)->codeGen(context);
-        context.builder.CreateStore(&ir_arg_it, argAlloc, false);
 
         Type::TypeID t = Type::VoidTyID;
         if ((*origin_arg)->type.name.compare("integer") == 0)
         {
+            Value *argAlloc;
+            argAlloc = (*origin_arg)->codeGen(context);
+            context.builder.CreateStore(&ir_arg_it, argAlloc, false);
             t = Type::IntegerTyID;
+            context.locals()[(*origin_arg)->id.name] = new Symbol(t, argAlloc);
+
+            Type::TypeID funcTp = Type::LabelTyID;
+        
+            context.setFuncArg((*origin_arg)->id.name, true);
+            origin_arg++;
         }
         else if ((*origin_arg)->type.name.compare("real") == 0)
         {
+            Value *argAlloc;
+            argAlloc = (*origin_arg)->codeGen(context);
+            context.builder.CreateStore(&ir_arg_it, argAlloc, false);
             t = Type::DoubleTyID;
-        }
+            context.locals()[(*origin_arg)->id.name] = new Symbol(t, argAlloc);
 
-        context.locals()[(*origin_arg)->id.name] = new Symbol(t, argAlloc);
-
-        Type::TypeID funcTp = Type::LabelTyID;
+            Type::TypeID funcTp = Type::LabelTyID;
         
-        context.setFuncArg((*origin_arg)->id.name, true);
-        origin_arg++;
+            context.setFuncArg((*origin_arg)->id.name, true);
+            origin_arg++;
+        }
+        else if ((*origin_arg)->type.name.compare("array") == 0)
+        {
+            t = Type::IntegerTyID;
+            Value *size = ConstantInt::get(Type::getInt64Ty(context.llvmContext), 10, true);
+            AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), size, (*origin_arg)->id.name);
+            context.builder.CreateStore(&ir_arg_it, inst, false);
+            context.locals()[(*origin_arg)->id.name] = new Symbol(t, inst);
+            context.localArr()[(*origin_arg)->id.name] = new Array(Type::IntegerTyID, size, inst);
+            context.setFuncArg((*origin_arg)->id.name, true);
+            origin_arg++;
+        }
     }
 
     if(this->decllist != nullptr){
@@ -300,18 +356,35 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
         {
             for (auto &ir_it2 : ir_it1->identList)
             {
-                Type::TypeID t = Type::VoidTyID;
-                if (ir_it1->type.name.compare("integer") == 0)
-                {
-                    t = Type::IntegerTyID;
-                    AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), nullptr, ir_it2->name.c_str());
-                    context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);    
-                }
-                else if (ir_it1->type.name.compare("real") == 0)
-                {
-                    t = Type::DoubleTyID;
-                    AllocaInst* inst = context.builder.CreateAlloca(Type::getDoubleTy(context.llvmContext), nullptr, ir_it2->name.c_str());
-                    context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);
+                if (ir_it1->count == nullptr) {
+                    Type::TypeID t = Type::VoidTyID;
+                    if (ir_it1->type.name.compare("integer") == 0)
+                    {
+                        t = Type::IntegerTyID;
+                        AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), nullptr, ir_it2->name.c_str());
+                        context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);    
+                    }
+                    else if (ir_it1->type.name.compare("real") == 0)
+                    {
+                        t = Type::DoubleTyID;
+                        AllocaInst* inst = context.builder.CreateAlloca(Type::getDoubleTy(context.llvmContext), nullptr, ir_it2->name.c_str());
+                        context.locals()[ir_it2->name.c_str()] = new Symbol(t, inst);
+                    }
+                } else {
+                    if (ir_it1->type.name.compare("integer") == 0)
+                    {
+                        if (ir_it1->count->value <= 0) {
+                            LogErrorV("Error array size");
+                            break;
+                        }
+                        // ArrayType* arrayType = ArrayType::get(Type::getInt64Ty(context.llvmContext), ir_it1->count->value);
+                        // AllocaInst* variable = new AllocaInst(arrayType, ir_it2->name.c_str());
+                        // Type::getInt64Ty(context.llvmContext)
+                        Value *size = ConstantInt::get(Type::getInt64Ty(context.llvmContext), ir_it1->count->value, true);
+                        AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), size, ir_it2->name.c_str());
+                        context.locals()[ir_it2->name.c_str()] = new Symbol(Type::IntegerTyID, inst);
+                        context.localArr()[ir_it2->name.c_str()] = new Array(Type::IntegerTyID, size, inst);
+                    }
                 }
             }        
         }
@@ -337,8 +410,29 @@ Value *NFunctionDeclaration::codeGen(CodeGenContext &context)
     return function;
 }
 
+llvm::Value *ArrayIndexNode::codeGen(CodeGenContext &context)
+{
+    cout << "Generating array index" << endl;
+    Value * kindx = this->keyIndex->codeGen(context);
+    
+    if (!kindx)
+        return nullptr;
+    // ConstantInt* CIkindx = dyn_cast<ConstantInt>(kindx);
+    
+    // ConstantInt* CI = dyn_cast<ConstantInt>(context.getArrSymbol(this->id.name)->getSize());
+    // if (CI->getSExtValue() < CIkindx->getSExtValue()) {
+        // std::cerr << "index outside array" << std::endl;
+        // return nullptr;
+    // } else {
+    Value *dst = context.getArrSymbol(this->id.name)->getValue();
+    // Value *x0 = context.builder.CreateExtractValue(context.builder.CreateLoad(dst), this->index->value);
+    Value *x0 = context.builder.CreateGEP(llvm::Type::getInt64Ty(context.llvmContext), dst,kindx);
+    Value *res = context.builder.CreateLoad(x0);
+    return res;
+    // }
+}
 
-llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
+llvm::Value *MethodCallNode::codeGen(CodeGenContext &context)
 { 
     cout << "Generating method call of " << this->id.name << endl;
     if (id.name.compare("write") == 0)
@@ -357,6 +451,7 @@ llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
     }
 
     Function *calleeF = context.module->getFunction(this->id.name);
+
     if (!calleeF)
     {
         LogErrorV("Function name not found");
@@ -381,7 +476,7 @@ llvm::Value *NMethodCall::codeGen(CodeGenContext &context)
     return context.builder.CreateCall(calleeF, argsv, "calltmp");
 }
 
-llvm::Value *NVariableDeclaration::codeGen(CodeGenContext &context)
+llvm::Value *VarDeclarationNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating var declaration " << this->type.name << " " << this->id.name << endl;
     Type *type = typeOf(&this->type, &context.llvmContext);
@@ -423,7 +518,7 @@ static Value *CastToBoolean(CodeGenContext &context, Value *condValue)
     }
 }
 
-llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
+llvm::Value *LoopStatementNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating loop " << endl;
 
@@ -437,8 +532,8 @@ llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
     // Генерируем локальную переменную для for
     if (this->initial) {
         Value *dst = context.getSymbol(this->initial->name)->getValue();
-        cout << "Generating Integer: " << this->fromA->value << endl;
-        Value *exp = ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->fromA->value, true);
+        cout << "Generating Integer: " << this->fromNumber->value << endl;
+        Value *exp = ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->fromNumber->value, true);
         context.builder.CreateStore(exp, dst);
     }
 
@@ -453,7 +548,7 @@ llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
         // Эквивалент генерации такой инструкции% cmptmp = icmp ult i32% x,% addtmp
         condValue = context.builder.CreateICmpULT(
             new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
-            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), "cmptmp");
+            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toNumber->value, true), "cmptmp");
     }
 
     if (!condValue)
@@ -487,7 +582,7 @@ llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
     } else {
         condValue = context.builder.CreateICmpULT(
             new LoadInst(context.locals()[this->initial->name]->getValue(), "", false, context.builder.GetInsertBlock()), 
-            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toB->value, true), 
+            ConstantInt::get(Type::getInt64Ty(context.llvmContext), this->toNumber->value, true), 
             "cmptmp"
             );
     }
@@ -503,7 +598,7 @@ llvm::Value *NLoopStatement::codeGen(CodeGenContext &context)
     return nullptr;
 }
 
-llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
+llvm::Value *IfStatementNode::codeGen(CodeGenContext &context)
 {
     cout << "Generating if" << endl;
     Value *condValue = this->condition.codeGen(context);
@@ -571,7 +666,7 @@ llvm::Value *NIfStatement::codeGen(CodeGenContext &context)
     return nullptr;
 }
 
-std::unique_ptr<NExpression> LogError(const char *str)
+std::unique_ptr<ExpressionNode> LogError(const char *str)
 {
     fprintf(stderr, "LogError: %s\n", str);
     return nullptr;

@@ -22,7 +22,7 @@
 using namespace llvm;
 using namespace std;
 
-class NBlock;
+class BlockNode;
 
 class Symbol
 {
@@ -35,13 +35,27 @@ public:
     Type::TypeID getType() { return type; };
 };
 
+class Array
+{
+    llvm::Value *value;
+    llvm::Value *size;
+    Type::TypeID type;
+
+public:
+    Array(Type::TypeID type, llvm::Value *size, llvm::Value *value) : value(value), size(size), type(type){};
+    Value *getValue() { return value; };
+    Value *getSize() { return size; };
+    Type::TypeID getType() { return type; };
+};
+
 class CodeGenBlock
 {
 public:
     BasicBlock *block;
     std::map<std::string, Symbol *> locals; // Локальные переменные
-    std::map<string, bool> isFuncArg;
+    std::map<string, bool> isFunctionArgument;
     std::string currentFunctionName; // Для return-a
+    std::map<std::string, Array *> localArr;
 };
 
 class CodeGenContext
@@ -73,9 +87,24 @@ public:
         return nullptr;
     };
 
-    void generateCode(NBlock &root);
+    Array *getArrSymbol(std::string name)
+    {
+        for (auto it = blocks.rbegin(); it != blocks.rend(); it++)
+        {
+            if ((*it)->localArr.find(name) != (*it)->localArr.end())
+            {
+                cout << name << endl;
+                return (*it)->localArr[name];
+            }
+        }
+        cout << "null" << endl;
+        return nullptr;
+    };
+
+    void generateCode(BlockNode &root);
     GenericValue runCode();
     std::map<std::string, Symbol *> &locals() { return blocks.back()->locals; }
+    std::map<std::string, Array *> &localArr() { return blocks.back()->localArr; }
     std::string &currentFunctionName() { return blocks.back()->currentFunctionName; };
     std::map<std::string, Symbol *> &getFunctions() { return functions; };
     BasicBlock *currentBlock() { return blocks.back()->block; }
@@ -96,14 +125,14 @@ public:
         delete back;
     }
 
-    bool isFuncArg(string name) const
+    bool isFunctionArgument(string name) const
     {
 
         for (auto it = blocks.rbegin(); it != blocks.rend(); it++)
         {
-            if ((*it)->isFuncArg.find(name) != (*it)->isFuncArg.end())
+            if ((*it)->isFunctionArgument.find(name) != (*it)->isFunctionArgument.end())
             {
-                return (*it)->isFuncArg[name];
+                return (*it)->isFunctionArgument[name];
             }
         }
         return false;
@@ -111,7 +140,7 @@ public:
 
         void setFuncArg(string name, bool value){
         cout << "Set " << name << " as func arg" << endl;
-        blocks.back()->isFuncArg[name] = value;
+        blocks.back()->isFunctionArgument[name] = value;
     }
 };
 
