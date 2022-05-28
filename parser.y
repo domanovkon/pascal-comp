@@ -19,6 +19,8 @@
         // ArrayIdentifierNode *arrayIdent;
         VarDeclarationNode *var_decl;
         std::vector<IdentifierNode*> *identList;
+        // std::vector<IntegerNode*> *integerList;
+        std::vector<int> *integerList1;
         std::vector<DeclarationsNode*> *declVarLists;
         std::vector<VarDeclarationNode*> *varvec;
         int number;
@@ -57,6 +59,7 @@
 %type <declVarLists> declarations-list
 %type <decl> declarations
 %type <identList> identifier-list
+%type <integerList1> integer-list
 %type <expr> expression simple-expression term factor varfunc-designator number actual-parameter var-array-designator
 %type <token> relational-operator addition-operator multiplication-operator sign
 %type <expr_list> actual-parameter-list
@@ -87,7 +90,13 @@ declarations-list : declarations T_SEMICOLON { $$ = new DeclarationsList(); $$->
 
 declarations : identifier-list T_COLON type-identifier {$$ = new DeclarationsNode(*$1, *$3); std::cout << "decl\n ";}
                 | identifier-list T_COLON T_ARRAY T_OSQPAREN number T_CSQPAREN T_OF type-identifier {$$ = new DeclarationsNode(*$1, *$8, $<integ>5); std::cout << "array-decl\n ";}
-		;                
+		| identifier-list T_COLON T_ARRAY T_OSQPAREN number T_CSQPAREN T_OF type-identifier T_CEQ T_OPAREN integer-list T_CPAREN {$$ = new DeclarationsNode(*$1, *$8, $<integ>5, $11); std::cout << "array-decl\n ";}
+                ;
+
+
+integer-list : integer-number { $$ = new IntegerList(); $$->push_back($1); std::cout << "integer-list\n ";}
+		| integer-list T_COMMA integer-number { $$->push_back($3); std::cout << "integer-list\n ";} 
+		;
 
 
 identifier-list : identifier { $$ = new IdentifierList(); $$->push_back($1); std::cout << "ident-list\n ";}

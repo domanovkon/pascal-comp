@@ -15,6 +15,7 @@ class VarDeclarationNode;
 class NVariableDefinition;
 class FunctionNode;
 class DeclarationsNode;
+class IntegerNode;
 
 typedef int Number;
 typedef std::vector<StatementNode *> StatementList;
@@ -23,6 +24,7 @@ typedef std::vector<IdentifierNode *> IdentifierList;
 typedef std::vector<VarDeclarationNode *> VariableList;
 typedef std::vector<std::vector<VarDeclarationNode *> *> LocalVariableList;
 typedef std::vector<DeclarationsNode *> DeclarationsList;
+typedef std::vector<int> IntegerList;
 
 
 class Node
@@ -125,9 +127,11 @@ public:
     std::vector<IdentifierNode*> &identList;
     IdentifierNode &type;
     IntegerNode *count;
+    std::vector<int> *integerList;
 
     // DeclarationsNode(std::vector<IdentifierNode*> &identList, IdentifierNode &type) : identList(identList), type(type) {}
-    DeclarationsNode(std::vector<IdentifierNode*> &identList, IdentifierNode &type, IntegerNode *count = nullptr) : identList(identList), type(type), count(count) {}
+    DeclarationsNode(std::vector<IdentifierNode*> &identList, IdentifierNode &type, IntegerNode *count = nullptr, std::vector<int> *integerList = nullptr) : identList(identList), type(type), count(count), integerList(integerList) {
+    }
     virtual llvm::Value *codeGen(CodeGenContext &context);
     std::string getTypeName() const override
     {

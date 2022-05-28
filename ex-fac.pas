@@ -10,7 +10,10 @@ begin
 	end;
 	fact := val;
 end
-var	x: integer;
+var	a: integer;
 begin
-	write(fact(5));
+	a := 5;
+	write(fact(a));
 end.
+
+

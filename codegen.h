@@ -147,21 +147,34 @@ public:
 class CodeGenFunc {
 public:
 
-static llvm::Value *myprintf(Module *module, IRBuilder<> *builder, LLVMContext* context, std::vector<llvm::Value *> args){
+static llvm::Value *writeFunc(Module *module, IRBuilder<> *builder, LLVMContext* context, std::vector<llvm::Value *> args, bool newLine){
     
     FunctionCallee CalleeF = module->getOrInsertFunction("printf",
                                                         FunctionType::get(IntegerType::getInt32Ty(*context),
                                                         PointerType::get(Type::getInt8Ty(*context), 0), true /* this is var arg func type*/));
     std::string newformat;
-    for(auto it=args.begin(); it!=args.end(); it++){
-        std::cout << (*it)->getType()->getTypeID() << std::endl;
-        if ((*it)->getType()->getTypeID()==llvm::Type::PointerTyID) {
-            newformat.append("%s");
-        } else if((*it)->getType()->getTypeID()==llvm::Type::IntegerTyID) {
-            newformat.append("%i");
-        } else if ((*it)->getType()->getTypeID()==llvm::Type::DoubleTyID) {
-            newformat.append("%f");
-        }    
+    if (newLine == true) {
+        for(auto it=args.begin(); it!=args.end(); it++){
+            std::cout << (*it)->getType()->getTypeID() << std::endl;
+            if ((*it)->getType()->getTypeID()==llvm::Type::PointerTyID) {
+                newformat.append("%s\n");
+            } else if((*it)->getType()->getTypeID()==llvm::Type::IntegerTyID) {
+                newformat.append("%i\n");
+            } else if ((*it)->getType()->getTypeID()==llvm::Type::DoubleTyID) {
+                newformat.append("%f\n");
+            }    
+        }
+    } else {
+        for(auto it=args.begin(); it!=args.end(); it++){
+            std::cout << (*it)->getType()->getTypeID() << std::endl;
+            if ((*it)->getType()->getTypeID()==llvm::Type::PointerTyID) {
+                newformat.append("%s");
+            } else if((*it)->getType()->getTypeID()==llvm::Type::IntegerTyID) {
+                newformat.append("%i");
+            } else if ((*it)->getType()->getTypeID()==llvm::Type::DoubleTyID) {
+                newformat.append("%f");
+            }    
+        }
     }
     llvm::Value *strVal = builder->CreateGlobalStringPtr(newformat);
     args.insert(args.begin(), strVal);

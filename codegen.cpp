@@ -384,6 +384,25 @@ Value *FunctionNode::codeGen(CodeGenContext &context)
                         AllocaInst* inst = context.builder.CreateAlloca(Type::getInt64Ty(context.llvmContext), size, ir_it2->name.c_str());
                         context.locals()[ir_it2->name.c_str()] = new Symbol(Type::IntegerTyID, inst);
                         context.localArr()[ir_it2->name.c_str()] = new Array(Type::IntegerTyID, size, inst);
+                        
+
+                        if (ir_it1->integerList != nullptr) {
+                            if (ir_it1->integerList[0].size() !=  0 && ir_it1->integerList[0].size() == ir_it1->count->value) {
+                                int indexValue = 0;
+                                for (auto &number : ir_it1->integerList[0]) {
+                                    Value *indx = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context.llvmContext), indexValue);
+                                    Value *num_value = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context.llvmContext), number);
+                                    cout << number << endl;
+                                    Value *dst = context.getArrSymbol(ir_it2->name.c_str())->getValue();
+                                    auto element_ptr = context.builder.CreateGEP(dst, (llvm::Type::getInt64Ty(context.llvmContext), indx));
+                                    context.builder.CreateStore(num_value, element_ptr);
+                                    indexValue++;
+                                }
+                            } else {
+                                string str = ir_it2->name.c_str();
+                                throw std::runtime_error("invalid array initialization: " + str);
+                            }
+                        }
                     }
                 }
             }        
@@ -435,8 +454,12 @@ llvm::Value *ArrayIndexNode::codeGen(CodeGenContext &context)
 llvm::Value *MethodCallNode::codeGen(CodeGenContext &context)
 { 
     cout << "Generating method call of " << this->id.name << endl;
-    if (id.name.compare("write") == 0)
+    if (id.name.compare("write") == 0 || id.name.compare("writeln") == 0)
     {
+        bool newLine = false;
+        if (id.name.compare("writeln") == 0) {
+            newLine = true;
+        }
         std::vector<Value *> argsv;
         for (auto it = arguments.begin(); it != arguments.end(); it++)
         {
@@ -447,7 +470,7 @@ llvm::Value *MethodCallNode::codeGen(CodeGenContext &context)
                 return nullptr;
             }
         }
-        return CodeGenFunc::myprintf(context.module, &context.builder, &context.llvmContext, argsv);
+        return CodeGenFunc::writeFunc(context.module, &context.builder, &context.llvmContext, argsv, newLine);
     }
 
     Function *calleeF = context.module->getFunction(this->id.name);
